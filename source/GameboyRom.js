@@ -26,4 +26,31 @@ export class GameboyRom extends Rom
 			, _:            0x150
 		};
 	}
+
+	deref(start, terminator, max)
+	{
+		return new Promise((accept, reject) => {
+			let bytes = [];
+
+			let consume = (start, bytes, accept, reject) => {
+				this.slice(start, 16).then((buffer) => {
+					for (let i = 0; i < buffer.length; i += 1)
+					{
+						if(buffer[i] === terminator || bytes.length >= max)
+						{
+							return accept(Buffer.from(bytes));
+						}
+						else
+						{
+							bytes.push(buffer[i]);
+						}
+					}
+
+					consume(start + 16, bytes, accept, reject);
+				});
+			};
+
+			consume(start, [], accept, reject);
+		});
+	}
 }

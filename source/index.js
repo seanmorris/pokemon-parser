@@ -1,6 +1,9 @@
 import { PokemonRom } from './PokemonRom';
 
-let rom = new PokemonRom('/home/sean/PokemonRed.gb');
+const args   = process.argv.slice(2);
+const [source,] = args;
+
+let rom = new PokemonRom(source);
 
 rom.preload().then((buffer)=>{
 
@@ -12,22 +15,22 @@ rom.preload().then((buffer)=>{
 
 	// // elements
 
-	// rom.piece(0x27DE4, 0x27E49).then((buffer) => {
-	// 	console.log( rom.decodeText(buffer) );
-	// });
+	rom.piece(0x27DE4, 0x27E49).then((buffer) => {
+		console.log( rom.decodeText(buffer) );
+	});
 
 	rom.listPokemon().then(pokemon => {
 		let pokemonPromises = pokemon.map(pokemon => {
 			if(!pokemon.number)
 			{
 				return Promise.resolve(false);
-				// return Promise.resolve({
-				// 	type:    'UNKNOWN'
-				// 	, feet:   0
-				// 	, inches: 0
-				// 	, pounds: 0
-				// 	, text:   '???'
-				// });
+				return Promise.resolve({
+					type:    'UNKNOWN'
+					, feet:   0
+					, inches: 0
+					, pounds: 0
+					, text:   '???'
+				});
 			}
 
 			return new Promise((accept, reject) => {
