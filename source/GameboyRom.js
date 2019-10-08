@@ -38,7 +38,9 @@ export class GameboyRom extends Rom
 					{
 						if(buffer[i] === terminator || bytes.length >= max)
 						{
-							return accept(Buffer.from(bytes));
+							const bufferType = (typeof Buffer === 'undefined' ? Uint8Array : Buffer);
+
+							return accept(bufferType.from(bytes));
 						}
 						else
 						{

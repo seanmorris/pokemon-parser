@@ -1,7 +1,5 @@
 import fsRom from './RomFactory/fsRom';
 
-console.log(fsRom);
-
 export class Rom
 {
 	constructor(filename)
@@ -13,8 +11,20 @@ export class Rom
 		this.ordered  = false;
 	}
 
-	preload()
+	preload(buffer)
 	{
+		if(buffer)
+		{
+			this.buffer = buffer;
+
+			return Promise.resolve(buffer);
+		}
+
+		if(this.buffer)
+		{
+			return Promise.resolve(this.buffer);
+		}
+
 		return fsRom(this.filename).then((buffer) => {
 			this.buffer = buffer;
 
@@ -29,7 +39,7 @@ export class Rom
 			{
 				this.preload();
 			}
-			
+
 			accept(this.buffer.slice(start, start + length));
 
 			// fs.exists(this.filename, (exists) => {

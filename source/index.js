@@ -89,6 +89,6 @@ rom.preload().then((buffer)=>{
 `
 				);
 			}
-		})
+		});
 	});
 });
