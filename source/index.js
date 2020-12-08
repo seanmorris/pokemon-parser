@@ -7,6 +7,10 @@ let rom = new PokemonRom(source);
 
 rom.preload().then((buffer)=>{
 
+	// rom.lzDecompress();
+
+	// return;
+
 	// // title
 
 	// rom.segment('title').then((buffer) => {
@@ -16,7 +20,7 @@ rom.preload().then((buffer)=>{
 	// // elements
 
 	rom.piece(0x27DE4, 0x27E49).then((buffer) => {
-		console.log( rom.decodeText(buffer) );
+		// console.log( rom.decodeText(buffer) );
 	});
 
 	rom.listPokemon().then(pokemon => {
@@ -50,8 +54,11 @@ rom.preload().then((buffer)=>{
 		});
 
 		Promise.all(pokemonPromises).then(pokemon => {
+			console.log(JSON.stringify(pokemon, null, 2));
+			return;
 			for(let i in pokemon)
 			{
+
 				if(!pokemon[i])
 				{
 					continue;

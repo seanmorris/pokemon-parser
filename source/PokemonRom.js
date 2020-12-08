@@ -165,7 +165,7 @@ export class PokemonRom extends GameboyRom
 	{
 		return new Promise((accept, reject) => {
 			this.slice(0x383DE + (28 * (number - 1)), 28).then(buffer => {
-				// console.log(buffer);
+				// console.error(buffer);
 
 				accept({
 					hp:                buffer[1]
@@ -274,6 +274,170 @@ export class PokemonRom extends GameboyRom
 					});
 				});
 			});
+		});
+	}
+
+	lzDecompress()
+	{
+		return this.piece(0x10000,0x1137F).then((buffer) => {
+
+			console.error(buffer.length);
+			const eof = 0xFF;
+			const out = [];
+
+			for (let i = 0; i < buffer.length; i += 1)
+			{
+				const n  = buffer[i];
+
+				if(n === eof)
+				{
+					break;
+				}
+
+				let code = n >> 5;
+				let c    = n & 0x1F;
+
+				let decoded;
+
+				const b  = buffer[i+1]
+				const b2 = buffer[i+2]
+
+				if(code === 0x7)
+				{
+					code = c >> 2;
+					c = (c & 3) * 256 + b;
+				}
+
+				console.error('code:', code);
+
+				decoded = [];
+
+				let offset, direction;
+
+				switch(code)
+				{
+					case 0x0:
+						decoded = Array.from(buffer.slice(i+1, i+c+2));
+
+						out.push(...decoded);
+
+						console.error(out.length);
+
+						i += c+3;
+						break;
+
+					case 0x1:
+						decoded = Array(c+1).fill(buffer[i+1]);
+
+						out.push(...decoded);
+
+						console.error(out.length);
+
+						i += 1;
+
+						break;
+
+					case 0x2:
+						decoded = [];
+
+						for(let ii = 0; ii < c+1; ii++)
+						{
+							decoded.push(ii % 2 ? b2 : b);
+						}
+
+						out.push(...decoded);
+
+						i += 2;
+
+						break;
+
+					case 0x3:
+
+						decoded = Array(c+1).fill(0x0);
+
+						out.push(...decoded);
+
+						break;
+
+					case 0x5:
+					case 0x6:
+					case 0x4:
+						// console.error(b, b2);
+						offset = b;
+
+						if(b < 0x80)
+						{
+							offset = (offset*256+b2) % out.length;
+						}
+						else
+						{
+							offset = b & 0x7F;
+						}
+
+						console.log(
+							'CXX', code, b, b2, c+1, offset, out.length
+						);
+
+						decoded = Array(c+1).fill(0x0);
+
+						out.push(...decoded);
+
+						i += b < 0x80 ? 2 : 1;
+						break;
+
+					// case 0x5:
+					// 	// console.error(b, b2);
+					// 	offset = b;
+
+					// 	if(b < 0x80)
+					// 	{
+					// 		offset = b*256+b2;
+					// 	}
+
+					// 	console.log('CXX', b, offset, out.length);
+
+					// 	i += b < 0x80 ? 2 : 1;
+					// 	break;
+
+					// case 0x6:
+					// 	// console.error(b, b2);
+					// 	offset = b;
+
+					// 	if(b < 0x80)
+					// 	{
+					// 		offset = b*256+b2;
+					// 	}
+
+					// 	console.log('CXX', b, offset, out.length);
+
+					// 	i += b < 0x80 ? 2 : 1;
+					// 	break;
+				}
+
+				console.error(
+					"\t" + '!', (i+c+2) - (i+1)
+					, decoded.length
+					, '!', decoded.map(
+						x=>x.toString(16).padStart(2,0)
+					).join(' ')
+				);
+
+				// console.error(
+				// 	`${code.toString(16).padStart(2,0)} `
+				// );
+
+			}
+
+			console.error();
+			console.error('=====================');
+			console.error(out.length);
+			console.error(out.join(' '));
+
+			process.stdout.write(Buffer.from(out));
+
+			// out.forEach(b => {
+				
+			// })
 		});
 	}
 }

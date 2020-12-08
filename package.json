@@ -1,14 +1,14 @@
 {
-  "name": "romhex",
-  "version": "1.0.0",
+  "name": "pokemon-parser",
+  "description": "JS-based data-miner for pokemon red/blue.",
+  "version": "0.0.1",
   "author": "Sean Morris",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "build": "babel ./source --out-dir ./ --ignore ./node_modules,./.babelrc,./package.json,./npm-debug.log --copy-files"
   },
   "keywords": [],
-  "license": "ISC",
+  "license": "Apache-2.0",
   "dependencies": {},
   "devDependencies": {
     "babel-cli": "^6.26.0",
@@ -20,5 +20,10 @@
     "url": "git+ssh://git@bitbucket.org/SeanMorris227/pokemon_parser.git"
   },
   "homepage": "https://bitbucket.org/SeanMorris227/pokemon_parser#readme",
-  "description": ""
+  "files": [
+    "index.js",
+    "Rom.js",
+    "GameboyRom.js",
+    "PokemonRom.js"
+  ]
 }
