@@ -54,8 +54,10 @@ rom.preload().then((buffer)=>{
 		});
 
 		Promise.all(pokemonPromises).then(pokemon => {
+			
 			console.log(JSON.stringify(pokemon, null, 2));
 			return;
+			
 			for(let i in pokemon)
 			{
 

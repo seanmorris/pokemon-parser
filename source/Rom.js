@@ -57,7 +57,7 @@ export class Rom
 
 			// 		fs.read(
 			// 			handle
-			// 			, Buffer.alloc(length)
+			// 			, ArrayBuffer.alloc(length)
 			// 			, null
 			// 			, length
 			// 			, start

@@ -24,7 +24,7 @@ export default function(filename)
 
 					fs.read(
 						handle
-						, Buffer.alloc(stats.size)
+						, new Uint8Array(stats.size)
 						, null
 						, stats.size
 						, 0

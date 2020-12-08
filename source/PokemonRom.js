@@ -433,7 +433,7 @@ export class PokemonRom extends GameboyRom
 			console.error(out.length);
 			console.error(out.join(' '));
 
-			process.stdout.write(Buffer.from(out));
+			process.stdout.write(ArrayBuffer.from(out));
 
 			// out.forEach(b => {
 				
