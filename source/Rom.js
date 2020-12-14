@@ -32,7 +32,7 @@ export class Rom
 		});
 	}
 
-	slice(start, length)
+	slice(start, length = undefined)
 	{
 		return new Promise((accept, reject) => {
 			if(!this.buffer)
@@ -40,7 +40,10 @@ export class Rom
 				this.preload();
 			}
 
-			accept(this.buffer.slice(start, start + length));
+			accept(length
+				? this.buffer.slice(start, start + length)
+				: this.buffer.slice(start)
+			);
 
 			// fs.exists(this.filename, (exists) => {
 			// 	if(!exists)

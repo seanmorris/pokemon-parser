@@ -5,14 +5,15 @@
   "author": "Sean Morris",
   "main": "index.js",
   "scripts": {
-    "build": "babel ./source --out-dir ./ --ignore ./node_modules,./.babelrc,./package.json,./npm-debug.log --copy-files"
+    "build": "babel ./source --out-dir ./"
   },
   "keywords": [],
   "license": "Apache-2.0",
   "dependencies": {},
   "devDependencies": {
-    "babel-cli": "^6.26.0",
-    "babel-preset-es2015": "^6.24.1",
+    "@babel/cli": "^7.12.10",
+    "@babel/core": "^7.12.10",
+    "@babel/preset-env": "^7.12.10",
     "rimraf": "^2.7.1"
   },
   "repository": {

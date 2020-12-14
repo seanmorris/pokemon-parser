@@ -1,4 +1,5 @@
 import { GameboyRom } from './GameboyRom';
+import { BitArray   } from './BitArray';
 
 export class PokemonRom extends GameboyRom
 {
@@ -122,52 +123,86 @@ export class PokemonRom extends GameboyRom
 			}
 			else
 			{
-				text += '_';
+				text += ' ';
 			}
 		}
 
-		return text;
+		return text.trim();
 	}
 
-	pokemonName(indexNumber)
+	getAllTypes()
 	{
-		return new Promise((accept, reject) => {
-			this.slice(0x2FA3, 1).then((buffer) => {
+		return this.piece(0x27DE4, 0x27E49).then((buffer) => {
+			return this.decodeText(buffer).split(' ');
+		});
+	}
 
-				let bankByte = buffer[0];
+	getPokemonName(indexNumber)
+	{
+		return this.slice(0x2FA3, 1).then((buffer) => {
 
-				this.slice(0x2FAE, 2).then((buffer) => {
-					let pointer = 0
-						+ (bankByte * 0x4000)
-						+ (buffer[1] << 8)
-						+ (buffer[0] << 0);
+			let bankByte = buffer[0];
 
-					pointer -= 0x4000;
+			return this.slice(0x2FAE, 2).then((buffer) => {
+				// let pointer = 0
+				// 	+ (bankByte * 0x4000)
+				// 	+ (buffer[1] << 8)
+				// 	+ (buffer[0] << 0);
 
-					this.deref(pointer + 0xA * indexNumber, 0x50, 0xA).then((bytes) => {
-						accept(this.decodeText(bytes));
-					});
-				});
+				// pointer -= 0x4000;
+
+				let pointer = this.makeRef(bankByte, buffer);
+
+				const bytes = this.deref(pointer + 0xA * indexNumber, 0x50, 0xA);
+
+				return this.decodeText(bytes);
 			});
 		});
 	}
 
-	pokemonNumber(indexNumber)
+	getPokemonNumber(indexNumber)
 	{
-		return new Promise((accept, reject) => {
-			this.slice(0x41024, 190).then(buffer => {
-				accept(buffer[indexNumber]);
-			});
+		return this.slice(0x41024, 190).then(buffer => {
+			return buffer[indexNumber];
 		});
 	}
 
-	pokemonInfo(number)
+	getPokemonStats(indexNumber)
 	{
-		return new Promise((accept, reject) => {
-			this.slice(0x383DE + (28 * (number - 1)), 28).then(buffer => {
-				// console.error(buffer);
+		let spriteBank;
 
-				accept({
+		if(indexNumber === 0x15)
+		{
+			spriteBank = 0x1;
+		}
+		else if(indexNumber === 0xB6)
+		{
+			spriteBank = 0xB;
+		}
+		else if(indexNumber < 0x1F)
+		{
+			spriteBank = 0x9;
+		}
+		else if(indexNumber < 0x4A)
+		{
+			spriteBank = 0xA;
+		}
+		else if(indexNumber < 0x74)
+		{
+			spriteBank = 0xB;
+		}
+		else if(indexNumber < 0x99)
+		{
+			spriteBank = 0xC;
+		}
+		else
+		{
+			spriteBank = 0xD;
+		}
+
+		return this.getPokemonNumber(indexNumber).then(number => {
+			return this.slice(0x383DE + (28 * (number - 1)), 28).then(buffer => {
+				return {
 					hp:                buffer[1]
 					, attack:          buffer[2]
 					, defense:         buffer[3]
@@ -178,119 +213,374 @@ export class PokemonRom extends GameboyRom
 					, catchRate:       buffer[8]
 					, expYield:        buffer[9]
 					, frontSpriteSize: buffer[10]
-					, frontSprite:     this.byteVal(buffer.slice(11, 13))
-					, backSprite:      this.byteVal(buffer.slice(13, 15))
+					, frontSprite:     this.formatRef(spriteBank, buffer.slice(11, 13))
+					, backSprite:      this.formatRef(spriteBank, buffer.slice(13, 15))
 					, basiceMove1:     buffer[15]
 					, basiceMove2:     buffer[16]
 					, basiceMove3:     buffer[17]
 					, basiceMove4:     buffer[18]
-				});
+				};
 			});
 		});
 	}
 
-	listPokemon()
+	getAllPokemon()
 	{
-		return new Promise((accept, reject) => {
-			this.slice(0x41024, 190).then(buffer => {
-				let pokemon = [];
+		return this.slice(0x41024, 190).then(buffer => {
+			const promises = [];
 
-				for (var i = 0; i < buffer.length; i++)
-				{
-					this.pokemonNumber(i).then((index => number => {
+			for (var index = 0; index < buffer.length; index++)
+			{
+				const getPokedex = this.getPokedexEntry(index);
+				const getNumber  = this.getPokemonNumber(index);
+				const getName    = this.getPokemonName(index);
+				const getStats   = this.getPokemonStats(index);
 
-						this.pokemonName(index).then(((index, number) => (species) => {
+				const getAllTypes = this.getAllTypes();
 
-							pokemon.push({
-								number
-								, index
-								, species
-							});
+				const getPokemon = Promise.all([getNumber, getName, getPokedex, getStats, getAllTypes])
 
-							if(pokemon.length == 190)
-							{
-								pokemon.sort((a, b) => a.number - b.number);
+				promises.push(getPokemon.then(([number, name, dex, stats, allTypes])=>{
 
-								accept(pokemon);
-							}
+					const s = [
+						0x0,0x1,0x2,0x3,
+						0xA,0xB,0xC,0xD,
+						null,null,null,null,
+						null,null,null,null,
+						null,null,null,
+						0xE,0x4,0x5,0x6,
+						0x7,0x8,0x9,0xF
+					];
 
-						})(index, number));
+					const type = t => {
 
-					})(i));
-				}
-			});
-		});
-	}
+						const tt = s[t];
 
-	pokedexEntry(indexNumber)
-	{
-		return new Promise((accept, reject) => {
-			this.piece(0x4047E, 0x405FA).then((buffer) => {
-				let pointer = 0
-					+ (buffer[ indexNumber * 2+1 ] << 8)
-					+ (buffer[ indexNumber * 2+0 ] << 0);
-
-				pointer -= 0x4000;
-				pointer += 0x40000;
-
-				this.deref(pointer, 0x50).then((bytes) => {
-
-					let type = this.decodeText(bytes);
-
-					let nextPointer = pointer + bytes.length + 1;
-
-					if(nextPointer == 0x40fe9)
-					{
-						return;
+						return allTypes[tt];
 					}
 
-					this.slice(nextPointer, 9).then((bytes) => {
+					const types = [type(stats.type1)]
 
-						let feet   = bytes[0];
-						let inches = bytes[1];
+					if(stats.type1 !== stats.type2)
+					{
+						types[1] = type(stats.type2);
+					}
 
-						let pounds = this.byteVal(
-							bytes.slice(2, 4)
-						) / 10;
+					return { name, number, types, dex, index, stats }
+				}));
+			}
 
-						let dexPointer = (bytes[7] * 0x4000)
-							+ this.byteVal(
-								bytes.slice(5, 7)
-							);
+			return Promise.all(promises);
+		});
+	}
 
-						dexPointer -= 0x4000;
+	getPokedexEntry(indexNumber)
+	{
+		return this.piece(0x4047E, 0x405FA).then((buffer) => {
+			let pointer = 0
+				+ (buffer[ indexNumber * 2+1 ] << 8)
+				+ (buffer[ indexNumber * 2+0 ] << 0);
 
-						this.deref(dexPointer, 0x50, 512).then((bytes) => {
-							let text = this.decodeText(bytes);
+			pointer -= 0x4000;
+			pointer += 0x40000;
 
-							accept({
-								type
-								, feet
-								, inches
-								, pounds
-								, text
-							});
-						});
-					});
-				});
+			const bytes = this.deref(pointer, 0x50);
+
+			let type = this.decodeText(bytes);
+
+			let nextPointer = pointer + bytes.length + 1;
+
+			if(nextPointer == 0x40fe9)
+			{
+				return;
+			}
+
+			return this.slice(nextPointer, 9).then((bytes) => {
+
+				let feet   = bytes[0];
+				let inches = bytes[1];
+
+				let pounds = this.byteVal(
+					bytes.slice(2, 4)
+				) / 10;
+
+				let dexPointer = (bytes[7] * 0x4000)
+					+ this.byteVal(
+						bytes.slice(5, 7)
+					);
+
+				dexPointer -= 0x4000;
+
+				const entryBytes = this.deref(dexPointer, 0x50, 512);
+
+				let entry = this.decodeText(entryBytes);
+
+				return({type, feet, inches, pounds, entry});
 			});
 		});
 	}
 
-	lzDecompress()
+	rleDecompress(start, maxLen = 0)
 	{
-		return this.piece(0x10000,0x1137F).then((buffer) => {
+		const table2 = [
+			[0, 1, 3, 2, 7, 6, 4, 5, 0xf, 0xe, 0xc, 0xd, 8, 9, 0xb, 0xa],
+			[0xf, 0xe, 0xc, 0xd, 8, 9, 0xb, 0xa, 0, 1, 3, 2, 7, 6, 4, 5],
+		];
 
-			console.error(buffer.length);
-			const eof = 0xFF;
-			const out = [];
+		const table3 = [...Array.from(16)].map((_,i)=> bitFlip(i, 4));
 
-			for (let i = 0; i < buffer.length; i += 1)
+		return this.slice(start).then((buffer) => {
+			const bits  = new BitArray(buffer);
+			const xSize = bits.next(4) * 8;
+			const ySize = bits.next(4);
+			const size  = xSize * ySize;
+			const order = bits.next();
+
+			const bitFlip = (x, n) => {
+				let r = 0;
+
+				while(n)
+				{
+					r = (r << 1) | (x & 1);
+					x >>= 1;
+					n -= 1;
+				}
+
+				return r;
+			};
+
+			const deinterlace = (bits) => {
+				const outputBits = new BitArray(bits.buffer.length);
+				let o = 0;
+
+				for(let y = 0; y < ySize; y++)
+				{
+					for(let x = 0; x < xSize; x++)
+					{
+						let i = 4 * y * xSize + x;
+
+						for(let j in [0,1,2,3])
+						{
+							outputBits.set(o++, bits.get(i));
+
+							i += xSize;
+						}
+					}
+				}
+
+				return outputBits;
+			};
+
+			const expand = (originalBits) => {
+				const bytes = new Uint8Array(originalBits.buffer.length * 2);
+				const bits  = new BitArray(originalBits);
+
+				let o = 0;
+
+				while(!bits.done)
+				{
+					bytes[o++] = (
+						(bits.next() << 6)
+						| (bits.next() << 4)
+						| (bits.next() << 2)
+						| (bits.next() << 0)
+					);
+				}
+
+				console.error(originalBits.buffer.length, o);
+
+				return bytes;
+			};
+
+			const rleFill = (buffer, i) => {
+				let ii = 0;
+
+				while(bits.next())
+				{
+					ii++;
+				}
+
+				const n = 2 << ii;
+				const a = bits.next(ii+1)
+				const m = n + a;
+
+				for(let j = 0; j < m; j++)
+				{
+					buffer.set(i++, 0);
+				}
+
+				return i;
+			}
+
+			const dataFill = (buffer, i) => {
+				while(true)
+				{
+					const b1 = bits.next();
+					const b2 = bits.next();
+
+					if(!b1 && !b2)
+					{
+						break;
+					}
+
+					// console.error(i, b1, b2);
+
+					buffer.set(i++, b2);
+					buffer.set(i++, b1);
+				}
+
+				return i;
+			}
+
+			const fillBuffer = buffer => {
+				const bitSize = size * 4;
+				let mode = bits.next();
+				let i = 0;
+
+				while(i < bitSize)
+				{
+					if(mode === 0)
+					{
+						i = rleFill(buffer, i);
+						mode = 1;
+					}
+					else if(mode === 1)
+					{
+						i = dataFill(buffer, i);
+						mode = 0;
+					}
+				}
+
+				const interlaced   = new BitArray(buffer);
+				const deinterlaced = deinterlace(interlaced);
+
+				for(let d in deinterlaced.buffer)
+				{
+					buffer.buffer[d] = deinterlaced.buffer[d];
+				}
+			}
+
+			const merge1 = (buffer) => {
+				for(let x = 0; x < xSize; x++)
+				{
+					let bit = 0;
+
+					for(let y = 0; y < ySize; y++)
+					{
+						const i = y * xSize + x;
+
+						let a = buffer[i] >> 4 & 0xF;
+						let b = buffer[i] & 0xF;
+
+						a = table2[bit][a];
+
+						bit = a & 1;
+
+						b = table2[bit][b];
+
+						buffer[i] = (a << 4) | b;
+					}
+				}
+			};
+
+			const merge2 = (buffer1, buffer2) => {
+				for(let i = 0; i < buffer2.length; i++)
+				{
+					// let a = buffer2[1] >> 4;
+					// let b = buffer2[1] & 0xF;
+
+					// a = table3[a];
+					// b = table3[b];
+
+					// buffer2 = a << 4 | b;
+
+					buffer2[i] ^= buffer1[1];
+				}
+			};
+
+			const buffers = [new BitArray(size), new BitArray(size)];
+
+			const bufA = buffers[order ^ 1];
+			const bufB = buffers[order];
+
+			let mode = bits.next();
+
+			fillBuffer(bufA);
+
+			if(mode === 1)
 			{
-				const n  = buffer[i];
+				mode = 1 + bits.next();
+			}
+
+			fillBuffer(bufB);
+
+			const bytesA = expand(bufA);
+			const bytesB = expand(bufB);
+
+			if(mode === 0)
+			{
+				merge1(bytesA);
+				merge1(bytesB);
+			}
+			else if(mode === 1)
+			{
+				merge1(bytesA);
+				merge2(bytesA, bytesB);
+			}
+			else if($mode === 2)
+			{
+				merge1(bytesB);
+				merge1(bytesA);
+				merge2(bytesA, bytesB);
+			}
+
+			const output = new BitArray(bufA.buffer.length);
+
+			const expandedBitsA = new BitArray(bytesA);
+			const expandedBitsB = new BitArray(bytesB);
+
+			let i = 0;
+
+			while(!expandedBitsA.done)
+			{
+				const a = expandedBitsA.next();
+				const b = expandedBitsB.next();
+
+				output.set(i++, a);
+				output.set(i++, b);
+			}
+
+			// process.stdout.write(output.buffer.map(x=>x.toString(16)).join(','));
+
+			// process.stdout.write(bufA.buffer);
+			// process.stdout.write(bufB.buffer);
+
+			// // process.stdout.write(bytesA);
+			// // process.stdout.write(bytesB);
+
+			process.stdout.write(expand(output));
+		});
+	}
+
+	lzDecompress(start)
+	{
+		return this.slice(start).then((buffer) => {
+
+			const eof = 0xFF;
+			let o = 0;
+
+			let width  = buffer[0] & 0xF;
+			let height = (buffer[0] & 0xF0) >> 4;
+
+			const out = new Uint8Array(width * height * 8 * 8);
+
+			for (let i = 1; i < buffer.length;)
+			{
+				const n = buffer[i++];
 
 				if(n === eof)
 				{
+					console.error(`EOF after ${i++} bytes read, ${o} bytes written.`);
 					break;
 				}
 
@@ -299,144 +589,149 @@ export class PokemonRom extends GameboyRom
 
 				let decoded;
 
-				const b  = buffer[i+1]
-				const b2 = buffer[i+2]
-
 				if(code === 0x7)
 				{
 					code = c >> 2;
-					c = (c & 3) * 256 + b;
+					c = (buffer[i++] & 3) * 256;
+					c += buffer[i++] + 1;
 				}
 
-				console.error('code:', code);
+				code > 0 && console.error('code:', code, 'c', c);
 
 				decoded = [];
 
-				let offset, direction;
+				let offset, direction, b, b1, b2;
 
 				switch(code)
 				{
 					case 0x0:
-						decoded = Array.from(buffer.slice(i+1, i+c+2));
+						for(let ii = 0; ii <= c; ii++)
+						{
+							out[o++] = buffer[i++];
+						}
 
-						out.push(...decoded);
-
-						console.error(out.length);
-
-						i += c+3;
 						break;
 
 					case 0x1:
-						decoded = Array(c+1).fill(buffer[i+1]);
+						b  = buffer[i++];
 
-						out.push(...decoded);
-
-						console.error(out.length);
-
-						i += 1;
+						for(let ii = 0; ii <= c; ii++)
+						{
+							out[o++] = b;
+						}
 
 						break;
 
 					case 0x2:
-						decoded = [];
+						b1 = buffer[i++];
+						b2 = buffer[i++];
 
-						for(let ii = 0; ii < c+1; ii++)
+						for(let ii = 0; ii <= c; ii++)
 						{
-							decoded.push(ii % 2 ? b2 : b);
+							out[o++] = (ii %2 ? b2 : b1);
 						}
-
-						out.push(...decoded);
-
-						i += 2;
 
 						break;
 
 					case 0x3:
 
-						decoded = Array(c+1).fill(0x0);
-
-						out.push(...decoded);
+						for(let ii = 0; ii <= c; ii++)
+						{
+							out[o++] = 0x0;
+						}
 
 						break;
 
-					case 0x5:
-					case 0x6:
 					case 0x4:
-						// console.error(b, b2);
-						offset = b;
+						b = buffer[i++];
 
 						if(b < 0x80)
 						{
-							offset = (offset*256+b2) % out.length;
+							b2 = buffer[i++];
+
+							offset = out.length % (b * 256 + b2);
+
+							console.error('4', {length: out.length, offset,c,b, b2});
 						}
 						else
 						{
-							offset = b & 0x7F;
+							b = b & 0x7f;
+
+							offset = o - b;
+
+							console.error('4', {length: out.length, offset,c, b});
 						}
 
-						console.log(
-							'CXX', code, b, b2, c+1, offset, out.length
-						);
 
-						decoded = Array(c+1).fill(0x0);
-
-						out.push(...decoded);
-
-						i += b < 0x80 ? 2 : 1;
+						for(let ii = 0; ii <= c; ii++)
+						{
+							out[o++] = out[offset + ii];
+						}
 						break;
 
-					// case 0x5:
-					// 	// console.error(b, b2);
-					// 	offset = b;
+					case 0x5:
+						b = buffer[i++];
 
-					// 	if(b < 0x80)
-					// 	{
-					// 		offset = b*256+b2;
-					// 	}
+						if(b >= 0x80)
+						{
+							b = b & 0x7f;
 
-					// 	console.log('CXX', b, offset, out.length);
+							offset = o - b;
 
-					// 	i += b < 0x80 ? 2 : 1;
-					// 	break;
+							console.error('5', {length: out.length, offset,c,b});
+						}
+						else
+						{
+							b2 = buffer[i++];
 
-					// case 0x6:
-					// 	// console.error(b, b2);
-					// 	offset = b;
+							offset = out.length % (b * 256 + b2);
 
-					// 	if(b < 0x80)
-					// 	{
-					// 		offset = b*256+b2;
-					// 	}
+							console.error('5', {length: out.length, offset,c,b,b2});
+						}
 
-					// 	console.log('CXX', b, offset, out.length);
+						for(let ii = 0; ii <= c; ii++)
+						{
+							out[o++] = out[offset + ii];
+						}
+						break;
 
-					// 	i += b < 0x80 ? 2 : 1;
-					// 	break;
+					case 0x6:
+						b = buffer[i++];
+
+						if(b >= 0x80)
+						{
+							b = b & 0x7f;
+
+							offset = o - b;
+
+							console.error('6', {length: out.length, offset,b});
+						}
+						else
+						{
+							b2 = buffer[i++];
+
+							offset = out.length % (b * 256 + b2);
+
+							console.error('6', {length: out.length, offset,b,b2});
+						}
+
+						for(let ii = 0; ii <= c; ii++)
+						{
+							out[o++] = out[offset - ii];
+						}
+						break;
 				}
 
-				console.error(
-					"\t" + '!', (i+c+2) - (i+1)
-					, decoded.length
-					, '!', decoded.map(
-						x=>x.toString(16).padStart(2,0)
-					).join(' ')
-				);
-
-				// console.error(
-				// 	`${code.toString(16).padStart(2,0)} `
-				// );
-
+				if(o > out.length)
+				{
+					break;
+				}
 			}
 
-			console.error();
-			console.error('=====================');
-			console.error(out.length);
-			console.error(out.join(' '));
-
-			process.stdout.write(ArrayBuffer.from(out));
+			process.stdout.write(out);
 
 			// out.forEach(b => {
-				
+
 			// })
 		});
 	}

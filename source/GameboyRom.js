@@ -29,28 +29,33 @@ export class GameboyRom extends Rom
 
 	deref(start, terminator, max)
 	{
-		return new Promise((accept, reject) => {
-			let bytes = [];
+		let bytes = [];
 
-			let consume = (start, bytes, accept, reject) => {
-				this.slice(start, 16).then((buffer) => {
-					for (let i = 0; i < buffer.length; i += 1)
-					{
-						if(buffer[i] === terminator || bytes.length >= max)
-						{
-							return accept(new Uint8Array(bytes));
-						}
-						else
-						{
-							bytes.push(buffer[i]);
-						}
-					}
+		for (let i = start; i < this.buffer.length; i += 1)
+		{
+			if(this.buffer[i] === terminator || bytes.length >= max)
+			{
+				return new Uint8Array(bytes);
+			}
+			else
+			{
+				bytes.push(this.buffer[i]);
+			}
+		}
 
-					consume(start + 16, bytes, accept, reject);
-				});
-			};
+		return bytes;
+	}
 
-			consume(start, [], accept, reject);
-		});
+	makeRef(bankByte, buffer)
+	{
+		return (bankByte << 14) + (this.byteVal(buffer) & 0x3fff);
+	}
+
+	formatRef(bank, buffer)
+	{
+		const offset  = this.makeRef(bank, buffer);
+		const pointer = this.byteVal(buffer);
+
+		return {bank, pointer, offset};
 	}
 }
