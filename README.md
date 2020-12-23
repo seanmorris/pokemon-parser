@@ -1,5 +1,5 @@
 # pokemon-parser
-**v0.0.5a**
+**v0.0.5b**
 
 Parses pokedex, evolution & level-up move data directly from Pokemon Red/Blue roms.
 
