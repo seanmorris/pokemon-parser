@@ -81,12 +81,14 @@ var RleDelta = /*#__PURE__*/function () {
       switch (mode) {
         case 0:
           this.deltaCount = 0;
+          this.lastBit = 0;
 
           while (this.deltaFill(bufA, xSize)) {
             ;
           }
 
           this.deltaCount = 0;
+          this.lastBit = 0;
 
           while (this.deltaFill(bufA, xSize)) {
             ;
@@ -96,6 +98,7 @@ var RleDelta = /*#__PURE__*/function () {
 
         case 1:
           this.deltaCount = 0;
+          this.lastBit = 0;
 
           while (this.deltaFill(bufA, xSize)) {
             ;

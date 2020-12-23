@@ -4,8 +4,6 @@ export class Merge
 {
 	constructor(input, width)
 	{
-		console.log(input);
-
 		this.width  = width;
 		this.size   = input.length;
 		this.input  = new BitArray(input);
@@ -16,8 +14,6 @@ export class Merge
 	{
 		const pallet = [255,128,196,64];
 		const halfLength = this.input.length / 2;
-
-		console.log(this.input);
 
 		for(let i = 0; i < halfLength; i++)
 		{

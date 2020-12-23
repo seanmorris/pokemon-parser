@@ -137,6 +137,39 @@ export class PokemonRom extends GameboyRom
 		});
 	}
 
+	getAllMoves()
+	{
+		this.moves = this.moves || this.piece(0xB0000, 0xB060E).then((buffer) => {
+
+			const nameBytes = [];
+			const nameList  = [];
+
+			for(let i in buffer)
+			{
+				const byte = buffer[i];
+
+				if(byte === 80)
+				{
+					const name = this.decodeText( nameBytes.splice(0) );
+
+					nameList.push(name);
+
+					continue;
+				}
+
+				nameBytes.push(buffer[i]);
+			}
+
+			const name = this.decodeText( nameBytes.splice(0) );
+
+			nameList.push(name);
+
+			return nameList;
+		});
+
+		return this.moves;
+	}
+
 	getPokemonName(indexNumber)
 	{
 		return this.slice(0x2FA3, 1).then((buffer) => {
@@ -144,13 +177,6 @@ export class PokemonRom extends GameboyRom
 			let bankByte = buffer[0];
 
 			return this.slice(0x2FAE, 2).then((buffer) => {
-				// let pointer = 0
-				// 	+ (bankByte * 0x4000)
-				// 	+ (buffer[1] << 8)
-				// 	+ (buffer[0] << 0);
-
-				// pointer -= 0x4000;
-
 				let pointer = this.makeRef(bankByte, buffer);
 
 				const bytes = this.deref(pointer + 0xA * indexNumber, 0x50, 0xA);
@@ -215,10 +241,7 @@ export class PokemonRom extends GameboyRom
 					, frontSpriteSize: buffer[10]
 					, frontSprite:     this.formatRef(spriteBank, buffer.slice(11, 13))
 					, backSprite:      this.formatRef(spriteBank, buffer.slice(13, 15))
-					, basiceMove1:     buffer[15]
-					, basiceMove2:     buffer[16]
-					, basiceMove3:     buffer[17]
-					, basiceMove4:     buffer[18]
+					, basicMoves:      [buffer[15], buffer[16], buffer[17], buffer[18]]
 				};
 			});
 		});
@@ -229,18 +252,29 @@ export class PokemonRom extends GameboyRom
 		return this.slice(0x41024, 190).then(buffer => {
 			const promises = [];
 
-			for (var index = 0; index < buffer.length; index++)
+			const getAllTypes = this.getAllTypes();
+			const getAllMoves = this.getAllMoves();
+
+			for (var i = 0; i < buffer.length; i++)
 			{
+				const index      = i;
 				const getPokedex = this.getPokedexEntry(index);
 				const getNumber  = this.getPokemonNumber(index);
 				const getName    = this.getPokemonName(index);
 				const getStats   = this.getPokemonStats(index);
+				const getLevelUp = this.getLevelUpActions(index);
 
-				const getAllTypes = this.getAllTypes();
+				const getPokemon = Promise.all([
+					getAllTypes
+					, getAllMoves
+					, getNumber
+					, getPokedex
+					, getName
+					, getStats
+					, getLevelUp
+				])
 
-				const getPokemon = Promise.all([getNumber, getName, getPokedex, getStats, getAllTypes])
-
-				promises.push(getPokemon.then(([number, name, dex, stats, allTypes])=>{
+				promises.push(getPokemon.then(([allTypes, allMoves, number, dex, name, stats, levelUp])=>{
 
 					const s = [
 						0x0,0x1,0x2,0x3,
@@ -266,7 +300,98 @@ export class PokemonRom extends GameboyRom
 						types[1] = type(stats.type2);
 					}
 
-					return { name, number, types, dex, index, stats }
+					for(const i in stats.basicMoves)
+					{
+						const moveId = -1 + stats.basicMoves[i];
+
+						if(moveId === -1)
+						{
+							continue;
+						}
+
+						if(allMoves[moveId])
+						{
+							const move = allMoves[moveId];
+
+							stats.basicMoves[i] = {moveId, move};
+						}
+					}
+
+					stats.basicMoves = stats.basicMoves.filter(x=>x);
+
+					const levelUpMoves = [];
+
+					for(const i in levelUp.learnset)
+					{
+						const moveId = levelUp.learnset[i].move;
+						const level  = levelUp.learnset[i].level;
+
+						if(!allMoves[moveId])
+						{
+							continue;
+						}
+
+						const move = allMoves[moveId];
+
+						levelUpMoves[i] = {moveId, move, level};
+					}
+
+					const evoPromise = [];
+					const evolutions = [];
+
+					for(const i in levelUp.evolutions)
+					{
+						const evoIndex = levelUp.evolutions[i].index;
+						const evoType  = levelUp.evolutions[i].type;
+
+						const level = levelUp.evolutions[i].level;
+
+						const evo = this.getPokemonNumber(evoIndex - 1).then(evoNumber => {
+
+							return this.getPokemonName(evoIndex - 1).then(evoName => {
+
+								let type;
+
+								switch(evoType)
+								{
+									case 1:
+										type = 'Level';
+										break;
+									case 2:
+										type = 'Stone';
+										break;
+									case 3:
+										type = 'Trade';
+										break;
+								}
+
+								return {
+									name: evoName
+									, type
+									, level
+									, index: evoIndex
+									, number: evoNumber
+									, item: levelUp.evolutions[i].item || undefined
+								};
+
+							});
+						});
+
+						evoPromise.push(evo);
+					}
+
+					return Promise.all(evoPromise).then(
+						evolutions => ({
+							name
+							, number
+							, types
+							, dex
+							, index
+							, evolutions
+							, stats
+							, levelUpMoves
+						})
+					);
 				}));
 			}
 
@@ -320,419 +445,245 @@ export class PokemonRom extends GameboyRom
 		});
 	}
 
-	rleDecompress(start, maxLen = 0)
+	getLevelUpActions(indexNumber)
 	{
-		const table2 = [
-			[0, 1, 3, 2, 7, 6, 4, 5, 0xf, 0xe, 0xc, 0xd, 8, 9, 0xb, 0xa],
-			[0xf, 0xe, 0xc, 0xd, 8, 9, 0xb, 0xa, 0, 1, 3, 2, 7, 6, 4, 5],
-		];
+		return this.slice((indexNumber*2) + 0x3B05C, 2).then(pointerBytes => {
 
-		const table3 = [...Array.from(16)].map((_,i)=> bitFlip(i, 4));
+			const evoPointer = this.makeRef(0x0E, pointerBytes);
+			const evoBytes   = this.deref(evoPointer, 0x0);
 
-		return this.slice(start).then((buffer) => {
-			const bits  = new BitArray(buffer);
-			const xSize = bits.next(4) * 8;
-			const ySize = bits.next(4);
-			const size  = xSize * ySize;
-			const order = bits.next();
+			const learnPointer = evoPointer + evoBytes.length + 1;
+			const learnBytes   = this.deref(learnPointer, 0x0);
 
-			const bitFlip = (x, n) => {
-				let r = 0;
+			const evolutions = this.parseEvolutions(evoBytes);
+			const learnset   = this.parseLearnset(learnBytes);
 
-				while(n)
-				{
-					r = (r << 1) | (x & 1);
-					x >>= 1;
-					n -= 1;
-				}
-
-				return r;
-			};
-
-			const deinterlace = (bits) => {
-				const outputBits = new BitArray(bits.buffer.length);
-				let o = 0;
-
-				for(let y = 0; y < ySize; y++)
-				{
-					for(let x = 0; x < xSize; x++)
-					{
-						let i = 4 * y * xSize + x;
-
-						for(let j in [0,1,2,3])
-						{
-							outputBits.set(o++, bits.get(i));
-
-							i += xSize;
-						}
-					}
-				}
-
-				return outputBits;
-			};
-
-			const expand = (originalBits) => {
-				const bytes = new Uint8Array(originalBits.buffer.length * 2);
-				const bits  = new BitArray(originalBits);
-
-				let o = 0;
-
-				while(!bits.done)
-				{
-					bytes[o++] = (
-						(bits.next() << 6)
-						| (bits.next() << 4)
-						| (bits.next() << 2)
-						| (bits.next() << 0)
-					);
-				}
-
-				console.error(originalBits.buffer.length, o);
-
-				return bytes;
-			};
-
-			const rleFill = (buffer, i) => {
-				let ii = 0;
-
-				while(bits.next())
-				{
-					ii++;
-				}
-
-				const n = 2 << ii;
-				const a = bits.next(ii+1)
-				const m = n + a;
-
-				for(let j = 0; j < m; j++)
-				{
-					buffer.set(i++, 0);
-				}
-
-				return i;
-			}
-
-			const dataFill = (buffer, i) => {
-				while(true)
-				{
-					const b1 = bits.next();
-					const b2 = bits.next();
-
-					if(!b1 && !b2)
-					{
-						break;
-					}
-
-					// console.error(i, b1, b2);
-
-					buffer.set(i++, b2);
-					buffer.set(i++, b1);
-				}
-
-				return i;
-			}
-
-			const fillBuffer = buffer => {
-				const bitSize = size * 4;
-				let mode = bits.next();
-				let i = 0;
-
-				while(i < bitSize)
-				{
-					if(mode === 0)
-					{
-						i = rleFill(buffer, i);
-						mode = 1;
-					}
-					else if(mode === 1)
-					{
-						i = dataFill(buffer, i);
-						mode = 0;
-					}
-				}
-
-				const interlaced   = new BitArray(buffer);
-				const deinterlaced = deinterlace(interlaced);
-
-				for(let d in deinterlaced.buffer)
-				{
-					buffer.buffer[d] = deinterlaced.buffer[d];
-				}
-			}
-
-			const merge1 = (buffer) => {
-				for(let x = 0; x < xSize; x++)
-				{
-					let bit = 0;
-
-					for(let y = 0; y < ySize; y++)
-					{
-						const i = y * xSize + x;
-
-						let a = buffer[i] >> 4 & 0xF;
-						let b = buffer[i] & 0xF;
-
-						a = table2[bit][a];
-
-						bit = a & 1;
-
-						b = table2[bit][b];
-
-						buffer[i] = (a << 4) | b;
-					}
-				}
-			};
-
-			const merge2 = (buffer1, buffer2) => {
-				for(let i = 0; i < buffer2.length; i++)
-				{
-					// let a = buffer2[1] >> 4;
-					// let b = buffer2[1] & 0xF;
-
-					// a = table3[a];
-					// b = table3[b];
-
-					// buffer2 = a << 4 | b;
-
-					buffer2[i] ^= buffer1[1];
-				}
-			};
-
-			const buffers = [new BitArray(size), new BitArray(size)];
-
-			const bufA = buffers[order ^ 1];
-			const bufB = buffers[order];
-
-			let mode = bits.next();
-
-			fillBuffer(bufA);
-
-			if(mode === 1)
-			{
-				mode = 1 + bits.next();
-			}
-
-			fillBuffer(bufB);
-
-			const bytesA = expand(bufA);
-			const bytesB = expand(bufB);
-
-			if(mode === 0)
-			{
-				merge1(bytesA);
-				merge1(bytesB);
-			}
-			else if(mode === 1)
-			{
-				merge1(bytesA);
-				merge2(bytesA, bytesB);
-			}
-			else if($mode === 2)
-			{
-				merge1(bytesB);
-				merge1(bytesA);
-				merge2(bytesA, bytesB);
-			}
-
-			const output = new BitArray(bufA.buffer.length);
-
-			const expandedBitsA = new BitArray(bytesA);
-			const expandedBitsB = new BitArray(bytesB);
-
-			let i = 0;
-
-			while(!expandedBitsA.done)
-			{
-				const a = expandedBitsA.next();
-				const b = expandedBitsB.next();
-
-				output.set(i++, a);
-				output.set(i++, b);
-			}
-
-			// process.stdout.write(output.buffer.map(x=>x.toString(16)).join(','));
-
-			// process.stdout.write(bufA.buffer);
-			// process.stdout.write(bufB.buffer);
-
-			// // process.stdout.write(bytesA);
-			// // process.stdout.write(bytesB);
-
-			process.stdout.write(expand(output));
+			return {evolutions, learnset};
 		});
 	}
 
-	lzDecompress(start)
+	parseEvolutions(bytes)
 	{
-		return this.slice(start).then((buffer) => {
+		const evolutions = [];
 
-			const eof = 0xFF;
-			let o = 0;
+		for(let i = 0; i < bytes.length;)
+		{
+			const type  = bytes[i++];
 
-			let width  = buffer[0] & 0xF;
-			let height = (buffer[0] & 0xF0) >> 4;
+			let level, index, item;
 
-			const out = new Uint8Array(width * height * 8 * 8);
-
-			for (let i = 1; i < buffer.length;)
+			switch(type)
 			{
-				const n = buffer[i++];
-
-				if(n === eof)
-				{
-					console.error(`EOF after ${i++} bytes read, ${o} bytes written.`);
+				case 1:
+					level = bytes[i++];
+					index = bytes[i++];
+					evolutions.push({type, level, index});
 					break;
-				}
 
-				let code = n >> 5;
-				let c    = n & 0x1F;
-
-				let decoded;
-
-				if(code === 0x7)
-				{
-					code = c >> 2;
-					c = (buffer[i++] & 3) * 256;
-					c += buffer[i++] + 1;
-				}
-
-				code > 0 && console.error('code:', code, 'c', c);
-
-				decoded = [];
-
-				let offset, direction, b, b1, b2;
-
-				switch(code)
-				{
-					case 0x0:
-						for(let ii = 0; ii <= c; ii++)
-						{
-							out[o++] = buffer[i++];
-						}
-
-						break;
-
-					case 0x1:
-						b  = buffer[i++];
-
-						for(let ii = 0; ii <= c; ii++)
-						{
-							out[o++] = b;
-						}
-
-						break;
-
-					case 0x2:
-						b1 = buffer[i++];
-						b2 = buffer[i++];
-
-						for(let ii = 0; ii <= c; ii++)
-						{
-							out[o++] = (ii %2 ? b2 : b1);
-						}
-
-						break;
-
-					case 0x3:
-
-						for(let ii = 0; ii <= c; ii++)
-						{
-							out[o++] = 0x0;
-						}
-
-						break;
-
-					case 0x4:
-						b = buffer[i++];
-
-						if(b < 0x80)
-						{
-							b2 = buffer[i++];
-
-							offset = out.length % (b * 256 + b2);
-
-							console.error('4', {length: out.length, offset,c,b, b2});
-						}
-						else
-						{
-							b = b & 0x7f;
-
-							offset = o - b;
-
-							console.error('4', {length: out.length, offset,c, b});
-						}
-
-
-						for(let ii = 0; ii <= c; ii++)
-						{
-							out[o++] = out[offset + ii];
-						}
-						break;
-
-					case 0x5:
-						b = buffer[i++];
-
-						if(b >= 0x80)
-						{
-							b = b & 0x7f;
-
-							offset = o - b;
-
-							console.error('5', {length: out.length, offset,c,b});
-						}
-						else
-						{
-							b2 = buffer[i++];
-
-							offset = out.length % (b * 256 + b2);
-
-							console.error('5', {length: out.length, offset,c,b,b2});
-						}
-
-						for(let ii = 0; ii <= c; ii++)
-						{
-							out[o++] = out[offset + ii];
-						}
-						break;
-
-					case 0x6:
-						b = buffer[i++];
-
-						if(b >= 0x80)
-						{
-							b = b & 0x7f;
-
-							offset = o - b;
-
-							console.error('6', {length: out.length, offset,b});
-						}
-						else
-						{
-							b2 = buffer[i++];
-
-							offset = out.length % (b * 256 + b2);
-
-							console.error('6', {length: out.length, offset,b,b2});
-						}
-
-						for(let ii = 0; ii <= c; ii++)
-						{
-							out[o++] = out[offset - ii];
-						}
-						break;
-				}
-
-				if(o > out.length)
-				{
+				case 2:
+					item  = bytes[i++];
+					level = bytes[i++];
+					index = bytes[i++];
+					evolutions.push({type, item, level, index});
 					break;
-				}
+
+				case 3:
+					level = bytes[i++];
+					index = bytes[i++];
+					evolutions.push({type, level, index});
+					break;
 			}
+		}
 
-			process.stdout.write(out);
-
-			// out.forEach(b => {
-
-			// })
-		});
+		return evolutions;
 	}
+
+	parseLearnset(bytes)
+	{
+		const learnset = [];
+
+		for(let i = 0; i < bytes.length; i += 2)
+		{
+			const level = bytes[i + 0];
+			const move  = bytes[i + 1];
+
+			learnset.push({level, move});
+		}
+
+		return learnset;
+	}
+
+	// lzDecompress(start)
+	// {
+	// 	return this.slice(start).then((buffer) => {
+
+	// 		const eof = 0xFF;
+	// 		let o = 0;
+
+	// 		let width  = buffer[0] & 0xF;
+	// 		let height = (buffer[0] & 0xF0) >> 4;
+
+	// 		const out = new Uint8Array(width * height * 8 * 8);
+
+	// 		for (let i = 1; i < buffer.length;)
+	// 		{
+	// 			const n = buffer[i++];
+
+	// 			if(n === eof)
+	// 			{
+	// 				console.error(`EOF after ${i++} bytes read, ${o} bytes written.`);
+	// 				break;
+	// 			}
+
+	// 			let code = n >> 5;
+	// 			let c    = n & 0x1F;
+
+	// 			let decoded;
+
+	// 			if(code === 0x7)
+	// 			{
+	// 				code = c >> 2;
+	// 				c = (buffer[i++] & 3) * 256;
+	// 				c += buffer[i++] + 1;
+	// 			}
+
+	// 			code > 0 && console.error('code:', code, 'c', c);
+
+	// 			decoded = [];
+
+	// 			let offset, direction, b, b1, b2;
+
+	// 			switch(code)
+	// 			{
+	// 				case 0x0:
+	// 					for(let ii = 0; ii <= c; ii++)
+	// 					{
+	// 						out[o++] = buffer[i++];
+	// 					}
+
+	// 					break;
+
+	// 				case 0x1:
+	// 					b  = buffer[i++];
+
+	// 					for(let ii = 0; ii <= c; ii++)
+	// 					{
+	// 						out[o++] = b;
+	// 					}
+
+	// 					break;
+
+	// 				case 0x2:
+	// 					b1 = buffer[i++];
+	// 					b2 = buffer[i++];
+
+	// 					for(let ii = 0; ii <= c; ii++)
+	// 					{
+	// 						out[o++] = (ii %2 ? b2 : b1);
+	// 					}
+
+	// 					break;
+
+	// 				case 0x3:
+
+	// 					for(let ii = 0; ii <= c; ii++)
+	// 					{
+	// 						out[o++] = 0x0;
+	// 					}
+
+	// 					break;
+
+	// 				case 0x4:
+	// 					b = buffer[i++];
+
+	// 					if(b < 0x80)
+	// 					{
+	// 						b2 = buffer[i++];
+
+	// 						offset = out.length % (b * 256 + b2);
+
+	// 						console.error('4', {length: out.length, offset,c,b, b2});
+	// 					}
+	// 					else
+	// 					{
+	// 						b = b & 0x7f;
+
+	// 						offset = o - b;
+
+	// 						console.error('4', {length: out.length, offset,c, b});
+	// 					}
+
+
+	// 					for(let ii = 0; ii <= c; ii++)
+	// 					{
+	// 						out[o++] = out[offset + ii];
+	// 					}
+	// 					break;
+
+	// 				case 0x5:
+	// 					b = buffer[i++];
+
+	// 					if(b >= 0x80)
+	// 					{
+	// 						b = b & 0x7f;
+
+	// 						offset = o - b;
+
+	// 						console.error('5', {length: out.length, offset,c,b});
+	// 					}
+	// 					else
+	// 					{
+	// 						b2 = buffer[i++];
+
+	// 						offset = out.length % (b * 256 + b2);
+
+	// 						console.error('5', {length: out.length, offset,c,b,b2});
+	// 					}
+
+	// 					for(let ii = 0; ii <= c; ii++)
+	// 					{
+	// 						out[o++] = out[offset + ii];
+	// 					}
+	// 					break;
+
+	// 				case 0x6:
+	// 					b = buffer[i++];
+
+	// 					if(b >= 0x80)
+	// 					{
+	// 						b = b & 0x7f;
+
+	// 						offset = o - b;
+
+	// 						console.error('6', {length: out.length, offset,b});
+	// 					}
+	// 					else
+	// 					{
+	// 						b2 = buffer[i++];
+
+	// 						offset = out.length % (b * 256 + b2);
+
+	// 						console.error('6', {length: out.length, offset,b,b2});
+	// 					}
+
+	// 					for(let ii = 0; ii <= c; ii++)
+	// 					{
+	// 						out[o++] = out[offset - ii];
+	// 					}
+	// 					break;
+	// 			}
+
+	// 			if(o > out.length)
+	// 			{
+	// 				break;
+	// 			}
+	// 		}
+
+	// 		process.stdout.write(out);
+
+	// 		// out.forEach(b => {
+
+	// 		// })
+	// 	});
+	// }
 }

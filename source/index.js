@@ -22,6 +22,13 @@ rom.preload().then((buffer)=>{
 		allPokemon = allPokemon.filter(a => a.number).sort((a,b)=>{
 			return a.number - b.number;
 		});
+
+		// allPokemon.map(p => {
+		// 	rom.getLevelUpActions(p.index).then(actions => {
+		// 		console.log(`${ p.name } [${p.index+1}]	${ JSON.stringify(actions) }`)
+		// 	});
+		// });
+
 		process.stdout.write(JSON.stringify(allPokemon, null, 4) + "\n");
 	});
 });

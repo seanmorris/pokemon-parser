@@ -69,28 +69,41 @@ export class RleDelta
 		switch(mode)
 		{
 			case 0:
+
 				this.deltaCount = 0;
+				this.lastBit    = 0;
 				while( this.deltaFill(bufA,xSize) );
+
 				this.deltaCount = 0;
+				this.lastBit    = 0;
 				while( this.deltaFill(bufA,xSize) );
+
 				break;
 
 			case 1:
+
 				this.deltaCount = 0;
+				this.lastBit    = 0;
 				while( this.deltaFill(bufA,xSize) );
+
 				this.xorCount = 0;
 				while( this.xorFill(bufA, bufB) );
+
 				break;
 
 			case 2:
+
 				this.deltaCount = 0;
-				this.lastBit = 0;
+				this.lastBit    = 0;
 				while( this.deltaFill(bufA,xSize) );
+
 				this.deltaCount = 0;
-				this.lastBit = 0;
+				this.lastBit    = 0;
 				while( this.deltaFill(bufB,xSize) );
+
 				this.xorCount = 0;
 				while( this.xorFill(bufA, bufB) );
+
 				break;
 		}
 	}

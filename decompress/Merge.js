@@ -17,7 +17,6 @@ var Merge = /*#__PURE__*/function () {
   function Merge(input, width) {
     _classCallCheck(this, Merge);
 
-    console.log(input);
     this.width = width;
     this.size = input.length;
     this.input = new _BitArray.BitArray(input);
@@ -29,14 +28,12 @@ var Merge = /*#__PURE__*/function () {
     value: function decompress() {
       var pallet = [255, 128, 196, 64];
       var halfLength = this.input.length / 2;
-      console.log(this.input);
 
       for (var i = 0; i < halfLength; i++) {
         var b1 = this.input.get(this.pixelToRowPixel(i));
         var b2 = this.input.get(this.pixelToRowPixel(i) + Math.pow(this.width, 2));
         var b = b1 << 1 | b2;
         this.buffer[i] = pallet[b];
-        console.log(i, b);
       }
     }
   }, {

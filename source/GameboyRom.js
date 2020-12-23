@@ -1,5 +1,8 @@
 import { Rom } from './Rom';
 
+import { Licensees } from './gameboy/Licensees';
+import { GbcLicensees } from './gameboy/GbcLicensees';
+
 export class GameboyRom extends Rom
 {
 	constructor(filename)
@@ -19,13 +22,45 @@ export class GameboyRom extends Rom
 			, romSize:      0x148
 			, ramSize:      0x149
 			, destination:  0x14A
-			, licensee:     0x14B
+			, gbcLicensee:  0x14B
 			, romVersion:   0x14C
 			, headerCheck:  0x14D
 			, globalCheck:  0x14E
 			, _:            0x150
 		};
 	}
+
+	get title()
+	{
+		const bytes = [...this.buffer.slice(this.index.title, this.index.title + 15)];
+
+		return bytes.map(b => b > 0 ? String.fromCharCode(b) : '').join('');
+	}
+
+	get manufacturer()
+	{
+		const bytes = [...this.buffer.slice(this.index.manufacturer, this.index.manufacturer + 4)];
+
+		return bytes.map(b => b > 0 ? String.fromCharCode(b) : '').join('');
+	}
+
+	get licensee()
+	{
+		const bytes = [...this.buffer.slice(this.index.manufacturer, this.index.manufacturer + 2)];
+		const code  = bytes.map(b => b.toString(16)).join('');
+
+		return Licensees[code] ?? undefined;
+	}
+
+	// get gbcLicensee()
+	// {
+	// 	const bytes = [...this.buffer.slice(this.index.gbcLicensee, this.index.gbcLicensee + 2)];
+	// 	const code  = bytes.map(b => b.toString(16)).join('');
+
+	// 	console.log(bytes,code);
+
+	// 	return GbcLicensees[code] ?? undefined;
+	// }
 
 	deref(start, terminator, max)
 	{
