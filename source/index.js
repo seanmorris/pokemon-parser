@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { PokemonRom } from './PokemonRom';
 
 const args   = process.argv.slice(2);
