@@ -1,13 +1,10 @@
 {
   "name": "pokemon-parser",
   "description": "JS-based data-miner for pokemon red/blue.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "author": "Sean Morris",
   "main": "index.js",
-  "scripts": {
-    "build": "babel ./source --out-dir ./"
-  },
-  "keywords": [],
+  "keywords": ["pokemon", "gen 1", "pokedex", "sprites", "rle"],
   "license": "Apache-2.0",
   "dependencies": {},
   "devDependencies": {
@@ -15,6 +12,9 @@
     "@babel/core": "^7.12.10",
     "@babel/preset-env": "^7.12.10",
     "rimraf": "^2.7.1"
+  },
+  "bin": {
+  	"pokemon-parser": "./index.js"
   },
   "repository": {
     "type": "git",

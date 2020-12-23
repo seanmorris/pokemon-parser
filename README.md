@@ -1,5 +1,5 @@
 # pokemon-parser
-**v0.0.2**
+**v0.0.3**
 
 Parses pokedex, evolution & level-up move data directly from Pokemon Red/Blue roms.
 
@@ -7,21 +7,19 @@ Parses pokedex, evolution & level-up move data directly from Pokemon Red/Blue ro
 
 I got tired of looking up this information in online indexes and finding incorrect information. Rather than try to memorize it, I'd rather get it right from the source.
 
-## Build
-
-Build with `make`
+## Installation
 
 ```bash
-$ make
+$ npm i -g pokemon-parser
 ```
+
 ## Usage
 
-Run the resulting index file in node:
+#### Get all pokedex info:
 
 ```bash
-$ node index.js ~/pokemon-red.gb
+$ pokemon-parser ~/PokemonRed.gb
 ```
-output
 
 ```js
 [
@@ -121,4 +119,116 @@ output
     },
     // ...
 ]
+```
+
+
+#### Get pokedex info for a single pokemon:
+
+```bash
+$ pokemon-parser ~/PokemonRed.gb 5
+```
+
+```json
+{
+    "name": "PIKACHU",
+    "number": 25,
+    "index": "83",
+    "types": [
+        "ELECTRIC"
+    ],
+    "dex": {
+        "type": "MOUSE",
+        "feet": 1,
+        "inches": 4,
+        "pounds": 13,
+        "entry": "When several of these POKéMON gather, their electricity could build and cause lightning storms"
+    },
+    "evolutions": [
+        {
+            "name": "RAICHU",
+            "type": "Stone",
+            "level": 1,
+            "index": 85,
+            "number": 26,
+            "item": 33
+        }
+    ],
+    "stats": {
+        "hp": 35,
+        "attack": 55,
+        "defense": 30,
+        "speed": 90,
+        "special": 50,
+        "catchRate": 190,
+        "expYield": 82
+    },
+    "sprites": {
+        "front": {
+            "bank": 11,
+            "pointer": 19837,
+            "offset": 183677,
+            "length": 85
+        },
+        "back": {
+            "bank": 11,
+            "pointer": 20107,
+            "offset": 183947
+        }
+    },
+    "basicMoves": [
+        {
+            "moveId": 83,
+            "move": "THUNDERSHOCK"
+        },
+        {
+            "moveId": 44,
+            "move": "GROWL"
+        }
+    ],
+    "levelUpMoves": [
+        {
+            "moveId": 85,
+            "move": "THUNDER WAVE",
+            "level": 9
+        },
+        {
+            "moveId": 97,
+            "move": "QUICK ATTACK",
+            "level": 16
+        },
+        {
+            "moveId": 128,
+            "move": "SWIFT",
+            "level": 26
+        },
+        {
+            "moveId": 96,
+            "move": "AGILITY",
+            "level": 33
+        },
+        {
+            "moveId": 86,
+            "move": "THUNDER",
+            "level": 43
+        }
+    ]
+}
+
+```
+
+## Developing
+
+### Build
+
+Build with `make`
+
+```bash
+$ make
+```
+### Run it
+
+Run the resulting index file in node:
+
+```bash
+$ node index.js ~/pokemon-red.gb
 ```

@@ -132,14 +132,14 @@ export class PokemonRom extends Rom
 
 	getAllTypes()
 	{
-		return this.piece(0x27DE4, 0x27E49).then((buffer) => {
+		return this.types = this.types || this.piece(0x27DE4, 0x27E49).then((buffer) => {
 			return this.decodeText(buffer).split(' ');
 		});
 	}
 
 	getAllMoves()
 	{
-		this.moves = this.moves || this.piece(0xB0000, 0xB060E).then((buffer) => {
+		return this.moves = this.moves || this.piece(0xB0000, 0xB060E).then((buffer) => {
 
 			const nameBytes = [];
 			const nameList  = [];
@@ -166,8 +166,33 @@ export class PokemonRom extends Rom
 
 			return nameList;
 		});
+	}
 
-		return this.moves;
+	getAllNumbers()
+	{
+		return this.numbers = this.numbers = this.slice(0x41024, 190);
+	}
+
+	getAllIndexNumbers()
+	{
+		if(!this.indexNumbers)
+		{
+			this.indexNumbers = [];
+		}
+		else
+		{
+			return this.indexNumbers;
+		}
+
+		return this.getAllNumbers().then(numbers => {
+
+			for(const i in numbers)
+			{
+				this.indexNumbers[ numbers[i] ] = i;
+			}
+
+			return this.indexNumbers;
+		});
 	}
 
 	getPokemonName(indexNumber)
@@ -252,155 +277,171 @@ export class PokemonRom extends Rom
 		return this.slice(0x41024, 190).then(buffer => {
 			const promises = [];
 
-			const getAllTypes = this.getAllTypes();
-			const getAllMoves = this.getAllMoves();
-
 			for (var i = 0; i < buffer.length; i++)
 			{
-				const index      = i;
-				const getPokedex = this.getPokedexEntry(index);
-				const getNumber  = this.getPokemonNumber(index);
-				const getName    = this.getPokemonName(index);
-				const getStats   = this.getPokemonStats(index);
-				const getLevelUp = this.getLevelUpActions(index);
-
-				const getPokemon = Promise.all([
-					getAllTypes
-					, getAllMoves
-					, getNumber
-					, getPokedex
-					, getName
-					, getStats
-					, getLevelUp
-				])
-
-				promises.push(getPokemon.then(([allTypes, allMoves, number, dex, name, stats, levelUp])=>{
-
-					const s = [
-						0x0,0x1,0x2,0x3,
-						0xA,0xB,0xC,0xD,
-						null,null,null,null,
-						null,null,null,null,
-						null,null,null,
-						0xE,0x4,0x5,0x6,
-						0x7,0x8,0x9,0xF
-					];
-
-					const type = t => {
-
-						const tt = s[t];
-
-						return allTypes[tt];
-					}
-
-					const types = [type(stats.type1)]
-
-					if(stats.type1 !== stats.type2)
-					{
-						types[1] = type(stats.type2);
-					}
-
-					for(const i in stats.basicMoves)
-					{
-						const moveId = -1 + stats.basicMoves[i];
-
-						if(moveId === -1)
-						{
-							continue;
-						}
-
-						if(allMoves[moveId])
-						{
-							const move = allMoves[moveId];
-
-							stats.basicMoves[i] = {moveId, move};
-						}
-					}
-
-					stats.basicMoves = stats.basicMoves.filter(x=>x);
-
-					const basicMoves = stats.basicMoves;
-
-					delete stats.basicMoves;
-
-					const levelUpMoves = [];
-
-					for(const i in levelUp.learnset)
-					{
-						const moveId = levelUp.learnset[i].move - 1;
-						const level  = levelUp.learnset[i].level;
-
-						if(allMoves[moveId] === -1)
-						{
-							continue;
-						}
-
-						const move = allMoves[moveId];
-
-						levelUpMoves[i] = {moveId, move, level};
-					}
-
-					const evoPromise = [];
-					const evolutions = [];
-
-					for(const i in levelUp.evolutions)
-					{
-						const evoIndex = levelUp.evolutions[i].index;
-						const evoType  = levelUp.evolutions[i].type;
-
-						const level = levelUp.evolutions[i].level;
-
-						const evo = this.getPokemonNumber(evoIndex - 1).then(evoNumber => {
-
-							return this.getPokemonName(evoIndex - 1).then(evoName => {
-
-								let type;
-
-								switch(evoType)
-								{
-									case 1:
-										type = 'Level';
-										break;
-									case 2:
-										type = 'Stone';
-										break;
-									case 3:
-										type = 'Trade';
-										break;
-								}
-
-								return {
-									name: evoName
-									, type
-									, level
-									, index: evoIndex
-									, number: evoNumber
-									, item: levelUp.evolutions[i].item || undefined
-								};
-
-							});
-						});
-
-						evoPromise.push(evo);
-					}
-
-					return Promise.all(evoPromise).then(
-						evolutions => ({
-							name
-							, number
-							, types
-							, dex
-							, index
-							, evolutions
-							, stats
-							, basicMoves
-							, levelUpMoves
-						})
-					);
-				}));
+				promises.push( this.getPokemon(i) );
 			}
 
 			return Promise.all(promises);
+		});
+	}
+
+	getPokemon(index)
+	{
+		const getAllTypes = this.getAllTypes();
+		const getAllMoves = this.getAllMoves();
+		const getPokedex  = this.getPokedexEntry(index);
+		const getNumber   = this.getPokemonNumber(index);
+		const getName     = this.getPokemonName(index);
+		const getStats    = this.getPokemonStats(index);
+		const getLevelUp  = this.getLevelUpActions(index);
+
+		const getPokemon = Promise.all([
+			getAllTypes
+			, getAllMoves
+			, getNumber
+			, getPokedex
+			, getName
+			, getStats
+			, getLevelUp
+		])
+
+		return getPokemon.then(([allTypes, allMoves, number, dex, name, stats, levelUp])=>{
+
+			const s = [
+				0x0,0x1,0x2,0x3,
+				0xA,0xB,0xC,0xD,
+				null,null,null,null,
+				null,null,null,null,
+				null,null,null,
+				0xE,0x4,0x5,0x6,
+				0x7,0x8,0x9,0xF
+			];
+
+			const type = t => {
+
+				const tt = s[t];
+
+				return allTypes[tt];
+			}
+
+			const types = [type(stats.type1)]
+
+			if(stats.type1 !== stats.type2)
+			{
+				types[1] = type(stats.type2);
+			}
+
+			for(const i in stats.basicMoves)
+			{
+				const moveId = -1 + stats.basicMoves[i];
+
+				if(moveId === -1)
+				{
+					continue;
+				}
+
+				if(allMoves[moveId])
+				{
+					const move = allMoves[moveId];
+
+					stats.basicMoves[i] = {moveId, move};
+				}
+			}
+
+			stats.basicMoves = stats.basicMoves.filter(x=>x);
+
+			const basicMoves = stats.basicMoves;
+			const sprites = {
+				front: stats.frontSprite
+				, back: stats.backSprite
+			};
+
+			sprites.front.length = stats.frontSpriteSize;
+
+			delete stats.type1;
+			delete stats.type2;
+			delete stats.basicMoves;
+			delete stats.frontSprite;
+			delete stats.frontSpriteSize;
+			delete stats.backSprite;
+			delete stats.backSpriteSize;
+
+			const levelUpMoves = [];
+
+			for(const i in levelUp.learnset)
+			{
+				const moveId = levelUp.learnset[i].move - 1;
+				const level  = levelUp.learnset[i].level;
+
+				if(allMoves[moveId] === -1)
+				{
+					continue;
+				}
+
+				const move = allMoves[moveId];
+
+				levelUpMoves[i] = {moveId, move, level};
+			}
+
+			const evoPromise = [];
+			const evolutions = [];
+
+			for(const i in levelUp.evolutions)
+			{
+				const evoIndex = levelUp.evolutions[i].index;
+				const evoType  = levelUp.evolutions[i].type;
+
+				const level = levelUp.evolutions[i].level;
+
+				const evo = this.getPokemonNumber(evoIndex - 1).then(evoNumber => {
+
+					return this.getPokemonName(evoIndex - 1).then(evoName => {
+
+						let type;
+
+						switch(evoType)
+						{
+							case 1:
+								type = 'Level';
+								break;
+							case 2:
+								type = 'Stone';
+								break;
+							case 3:
+								type = 'Trade';
+								break;
+						}
+
+						return {
+							name: evoName
+							, type
+							, level
+							, index: evoIndex
+							, number: evoNumber
+							, item: levelUp.evolutions[i].item || undefined
+						};
+
+					});
+				});
+
+				evoPromise.push(evo);
+			}
+
+			return Promise.all(evoPromise).then(
+				evolutions => ({
+					name
+					, number
+					, index
+					, types
+					, dex
+					, evolutions
+					, stats
+					, sprites
+					, basicMoves
+					, levelUpMoves
+				})
+			);
 		});
 	}
 
