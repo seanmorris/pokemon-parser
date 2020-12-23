@@ -1,5 +1,5 @@
 # pokemon-parser
-**v0.0.5b**
+**v0.0.5c**
 
 Parses pokedex, evolution & level-up move data directly from Pokemon Red/Blue roms.
 
@@ -20,7 +20,7 @@ $ npm install pokemon-parser --save
 #### Load pokedex info for a given pokemon:
 
 ```javascript
-const rom = new PokemonRom(PATH_TO_GB_ROM);
+const rom = new PokemonRom(PATH_TO_ROM || BUFFER_CONTAINING_ROM);
 
 rom.preload().then(() => rom.getAllIndexNumbers()).then(numbers => {
 
@@ -43,7 +43,7 @@ The data will be returned as a list of 8-bit greyscale values for the pixels in 
 You'll need to encode this data into an image or draw it to a canvas to display it.
 
 ```javascript
-const rom = new PokemonRom(PATH_TO_GB_ROM);
+const rom = new PokemonRom(PATH_TO_ROM || BUFFER_CONTAINING_ROM);
 
 rom.preload().then(() => rom.getAllIndexNumbers()).then(numbers => {
 
@@ -302,6 +302,8 @@ $ node index.js ~/pokemon-red.gb
 
 ## TODO
 
+* Load TM/HM move learnsets.
+* Load encounter locations.
 * Load color palette for pokemon when producing PNGs for sprites.
 * Account for edge case involving locations for Mew's stats & sprite locations.
 * Use pointer instead of fixed addresses to account for Pokemon Yellow, and possibly rom hacks.
