@@ -1,5 +1,5 @@
 # pokemon-parser
-**v0.0.5c**
+**v0.0.5d**
 
 Parses pokedex, evolution & level-up move data directly from Pokemon Red/Blue roms.
 
@@ -9,13 +9,13 @@ I got tired of looking up this information in online indexes and finding incorre
 
 ## Usage
 
-### Installation
+### Library
+
+#### Installation
 
 ```bash
 $ npm install pokemon-parser --save
 ```
-
-### Library
 
 #### Load pokedex info for a given pokemon:
 
@@ -61,6 +61,8 @@ rom.preload().then(() => rom.getAllIndexNumbers()).then(numbers => {
 ```
 
 ### CLI
+
+#### Installation
 
 ```bash
 $ npm i -g pokemon-parser

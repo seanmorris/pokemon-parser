@@ -1,7 +1,7 @@
 {
   "name": "pokemon-parser",
   "description": "JS-based data-miner for pokemon red/blue.",
-  "version": "0.0.5c",
+  "version": "0.0.5-d",
   "author": "Sean Morris",
   "main": "index.js",
   "keywords": [
@@ -27,9 +27,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com:seanmorris/PokemonExtrator.git"
+    "url": "git@github.com:seanmorris/pokemon-parser.git"
   },
-  "homepage": "https://github.com/seanmorris/PokemonExtrator",
+  "homepage": "https://github.com/seanmorris/pokemon-parser",
   "files": [
     "index.js",
     "BitArray.js",
