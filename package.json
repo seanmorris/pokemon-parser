@@ -23,8 +23,16 @@
   "homepage": "https://bitbucket.org/SeanMorris227/pokemon_parser#readme",
   "files": [
     "index.js",
-    "Rom.js",
-    "GameboyRom.js",
+    "BitArray.js",
+    "PokemonRom.js",
+    "gameboy/Rom.js",
+    "base/Rom.js",
+    "decompress/Merge.js",
+    "decompress/RleDelta.js",
+    "factory/fsRom.js",
+    "gameboy/GbcLicensees.js",
+    "gameboy/Licensees.js",
+    "gameboy/Rom.js",
     "PokemonRom.js"
   ]
 }
