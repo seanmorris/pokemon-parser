@@ -1,0 +1,39 @@
+{
+    "name": "",
+    "types": [
+        null
+    ],
+    "dex": {
+        "type": "A1POKé+9  9                           9         *9                9 S       .              A  $   Y        r 2 a   Y         4  D      ↓    Q'q' p' 'p       p'é   Q 'o p  'r' ' '                 9  'o   !  'é  'PK        p'q'  'é      ♂  N  Z                    4  ¥ 's 5 ' ¥ 'l 5 p $  ♀         f        w    2    4#              D  h      4  h n  t  4  h 04  h      i            45 H    4  h      4. h       9   y j",
+        "feet": 175,
+        "inches": 234,
+        "pounds": 5313.8,
+        "entry": "right. Then  this is mine!"
+    },
+    "evolutions": [
+        {
+            "name": "",
+            "type": "Level"
+        }
+    ],
+    "stats": {},
+    "sprites": {
+        "front": {
+            "bank": 13,
+            "pointer": 0,
+            "offset": 212992
+        },
+        "back": {
+            "bank": 13,
+            "pointer": 0,
+            "offset": 212992
+        }
+    },
+    "basicMoves": [],
+    "levelUpMoves": [
+        {
+            "moveId": null,
+            "level": 40
+        }
+    ]
+}

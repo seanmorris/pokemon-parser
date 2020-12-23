@@ -1,5 +1,5 @@
 # pokemon-parser
-**v0.0.5**
+**v0.0.5a**
 
 Parses pokedex, evolution & level-up move data directly from Pokemon Red/Blue roms.
 
@@ -7,13 +7,13 @@ Parses pokedex, evolution & level-up move data directly from Pokemon Red/Blue ro
 
 I got tired of looking up this information in online indexes and finding incorrect information. Rather than try to memorize it, I'd rather get it right from the source.
 
-## Installation
+## Usage
+
+### Installation
 
 ```bash
-$ npm i -g pokemon-parser
+$ npm install pokemon-parser --save
 ```
-
-## Usage
 
 ### Library
 
@@ -62,6 +62,10 @@ rom.preload().then(() => rom.getAllIndexNumbers()).then(numbers => {
 
 ### CLI
 
+```bash
+$ npm i -g pokemon-parser
+```
+
 #### Get the sprites for a pokemon:
 
 The `pic` command will print a PNG image of the pokemon's sprite to `STDOUT`.
@@ -70,6 +74,9 @@ The `pic` command will print a PNG image of the pokemon's sprite to `STDOUT`.
 $ pokemon-parser ~/PokemonRed.gb pic 6 > charizard-front.png
 $ pokemon-parser ~/PokemonRed.gb pic-back 6 > charizard-back.png
 ```
+
+![Charizard front sprite fron Generation 1](https://raw.githubusercontent.com/seanmorris/PokemonExtrator/master/charizard-front.png)
+![Charizard back sprite fron Generation 1](https://raw.githubusercontent.com/seanmorris/PokemonExtrator/master/charizard-back.png)
 
 #### Get all pokedex info:
 
