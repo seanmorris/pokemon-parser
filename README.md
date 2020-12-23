@@ -1,7 +1,11 @@
-# Pokemon Parser
-**v0.0.1**
+# pokemon-parser
+**v0.0.2**
 
-Parses pokedex data directly from Pokemon Red/Blue roms.
+Parses pokedex, evolution & level-up move data directly from Pokemon Red/Blue roms.
+
+## Motivation
+
+I got tired of looking up this information in online indexes and finding incorrect information. Rather than try to memorize it, I'd rather get it right from the source.
 
 ## Build
 
@@ -24,7 +28,10 @@ output
     {
         "name": "BULBASAUR",
         "number": 1,
-        "index": 190,
+        "types": [
+            "GRASS",
+            "POISON"
+        ],
         "dex": {
             "type": "SEED",
             "feet": 2,
@@ -32,6 +39,16 @@ output
             "pounds": 15,
             "entry": "A strange seed was planted on its back at birth. The plant sprouts and grows with this POKéMON"
         },
+        "index": 152,
+        "evolutions": [
+            {
+                "name": "IVYSAUR",
+                "type": "Level",
+                "level": 16,
+                "index": 9,
+                "number": 2
+            }
+        ],
         "stats": {
             "hp": 45,
             "attack": 49,
@@ -52,25 +69,56 @@ output
                 "bank": 12,
                 "pointer": 16613,
                 "offset": 196837
-            },
-            "basiceMove1": 33,
-            "basiceMove2": 45,
-            "basiceMove3": 0,
-            "basiceMove4": 0
-        }
-    },
-    {
-        "name": "IVYSAUR",
-        "number": 2,
-        "index": 190,
-        "dex": {
-            "type": "SEED",
-            "feet": 3,
-            "inches": 3,
-            "pounds": 29,
-            "entry": "When the bulb on its back grows large, it appears to lose the ability to stand on its hind legs"
+            }
         },
-        "stats": {
-            "hp": 60,
+        "basicMoves": [
+            {
+                "moveId": 32,
+                "move": "TACKLE"
+            },
+            {
+                "moveId": 44,
+                "move": "GROWL"
+            }
+        ],
+        "levelUpMoves": [
+            {
+                "moveId": 72,
+                "move": "LEECH SEED",
+                "level": 7
+            },
+            {
+                "moveId": 21,
+                "move": "VINE WHIP",
+                "level": 13
+            },
+            {
+                "moveId": 76,
+                "move": "POISONPOWDER",
+                "level": 20
+            },
+            {
+                "moveId": 74,
+                "move": "RAZOR LEAF",
+                "level": 27
+            },
+            {
+                "moveId": 73,
+                "move": "GROWTH",
+                "level": 34
+            },
+            {
+                "moveId": 78,
+                "move": "SLEEP POWDER",
+                "level": 41
+            },
+            {
+                "moveId": 75,
+                "move": "SOLARBEAM",
+                "level": 48
+            }
+        ]
+    },
     // ...
+]
 ```

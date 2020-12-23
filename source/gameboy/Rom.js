@@ -1,9 +1,9 @@
-import { Rom } from './Rom';
+import { Rom as BaseRom } from '../base/Rom';
 
-import { Licensees } from './gameboy/Licensees';
-import { GbcLicensees } from './gameboy/GbcLicensees';
+import { Licensees } from './Licensees';
+import { GbcLicensees } from './GbcLicensees';
 
-export class GameboyRom extends Rom
+export class Rom extends BaseRom
 {
 	constructor(filename)
 	{

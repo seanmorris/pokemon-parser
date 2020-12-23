@@ -1,7 +1,7 @@
-import { GameboyRom } from './GameboyRom';
+import { Rom } from './gameboy/Rom';
 import { BitArray   } from './BitArray';
 
-export class PokemonRom extends GameboyRom
+export class PokemonRom extends Rom
 {
 	constructor(filename)
 	{
@@ -319,14 +319,18 @@ export class PokemonRom extends GameboyRom
 
 					stats.basicMoves = stats.basicMoves.filter(x=>x);
 
+					const basicMoves = stats.basicMoves;
+
+					delete stats.basicMoves;
+
 					const levelUpMoves = [];
 
 					for(const i in levelUp.learnset)
 					{
-						const moveId = levelUp.learnset[i].move;
+						const moveId = levelUp.learnset[i].move - 1;
 						const level  = levelUp.learnset[i].level;
 
-						if(!allMoves[moveId])
+						if(allMoves[moveId] === -1)
 						{
 							continue;
 						}
@@ -389,6 +393,7 @@ export class PokemonRom extends GameboyRom
 							, index
 							, evolutions
 							, stats
+							, basicMoves
 							, levelUpMoves
 						})
 					);

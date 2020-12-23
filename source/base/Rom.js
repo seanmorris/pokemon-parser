@@ -1,4 +1,4 @@
-import fsRom from './RomFactory/fsRom';
+import fsRom from '../factory/fsRom';
 
 export class Rom
 {

@@ -1,4 +1,6 @@
 /*.js
+/base
+/factory
 /decompress
 /gameboy
 node_modules/
