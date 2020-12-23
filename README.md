@@ -1,5 +1,5 @@
 # pokemon-parser
-**v0.0.3**
+**v0.0.5**
 
 Parses pokedex, evolution & level-up move data directly from Pokemon Red/Blue roms.
 
@@ -15,17 +15,77 @@ $ npm i -g pokemon-parser
 
 ## Usage
 
-#### Get all pokedex info:
+### Library
 
-```bash
-$ pokemon-parser ~/PokemonRed.gb
+#### Load pokedex info for a given pokemon:
+
+```javascript
+const rom = new PokemonRom(PATH_TO_GB_ROM);
+
+rom.preload().then(() => rom.getAllIndexNumbers()).then(numbers => {
+
+	const dexNumber = numbers[ number ];
+
+	return rom.getPokemon(dexNumber);
+
+}).then(pokedexInfo => {
+
+	console.log(pokedexInfo);
+
+});
+
 ```
 
-```js
+#### Load raw image data for pokemon:
+
+The data will be returned as a list of 8-bit greyscale values for the pixels in the image, from left to right, starting from the top left corner.
+
+You'll need to encode this data into an image or draw it to a canvas to display it.
+
+```javascript
+const rom = new PokemonRom(PATH_TO_GB_ROM);
+
+rom.preload().then(() => rom.getAllIndexNumbers()).then(numbers => {
+
+	const dexNumber = numbers[ number ];
+
+	//return rom.getBackSprite( numbers[ number ] );
+	return rom.getFrontSprite( numbers[ number ] );
+
+}).then(imgBuffer => {
+
+	console.log(imgBuffer); // Raw 8-bit greyscale
+
+});
+
+```
+
+### CLI
+
+#### Get the sprites for a pokemon:
+
+The `pic` command will print a PNG image of the pokemon's sprite to `STDOUT`.
+
+```bash
+$ pokemon-parser ~/PokemonRed.gb pic 6 > charizard-front.png
+$ pokemon-parser ~/PokemonRed.gb pic-back 6 > charizard-back.png
+```
+
+#### Get all pokedex info:
+
+The `dex` command will print a JSON stanza of pokedex info to `STDOUT`.
+
+
+```bash
+$ pokemon-parser ~/PokemonRed.gb dex
+```
+
+```javascript
 [
     {
         "name": "BULBASAUR",
         "number": 1,
+        "index": 152,
         "types": [
             "GRASS",
             "POISON"
@@ -37,7 +97,6 @@ $ pokemon-parser ~/PokemonRed.gb
             "pounds": 15,
             "entry": "A strange seed was planted on its back at birth. The plant sprouts and grows with this POKéMON"
         },
-        "index": 152,
         "evolutions": [
             {
                 "name": "IVYSAUR",
@@ -53,17 +112,17 @@ $ pokemon-parser ~/PokemonRed.gb
             "defense": 49,
             "speed": 45,
             "special": 65,
-            "type1": 22,
-            "type2": 3,
             "catchRate": 45,
-            "expYield": 64,
-            "frontSpriteSize": 85,
-            "frontSprite": {
+            "expYield": 64
+        },
+        "sprites": {
+            "front": {
                 "bank": 12,
                 "pointer": 16384,
-                "offset": 196608
+                "offset": 196608,
+                "length": 85
             },
-            "backSprite": {
+            "back": {
                 "bank": 12,
                 "pointer": 16613,
                 "offset": 196837
@@ -121,11 +180,12 @@ $ pokemon-parser ~/PokemonRed.gb
 ]
 ```
 
-
 #### Get pokedex info for a single pokemon:
 
+Supply a number after the "dex" command to load data for one pokemon.
+
 ```bash
-$ pokemon-parser ~/PokemonRed.gb 5
+$ pokemon-parser ~/PokemonRed.gb dex 25
 ```
 
 ```json
@@ -213,7 +273,6 @@ $ pokemon-parser ~/PokemonRed.gb 5
         }
     ]
 }
-
 ```
 
 ## Developing
@@ -225,6 +284,7 @@ Build with `make`
 ```bash
 $ make
 ```
+
 ### Run it
 
 Run the resulting index file in node:
@@ -232,3 +292,11 @@ Run the resulting index file in node:
 ```bash
 $ node index.js ~/pokemon-red.gb
 ```
+
+## TODO
+
+* Load color palette for pokemon when producing PNGs for sprites.
+* Account for edge case involving locations for Mew's stats & sprite locations.
+* Use pointer instead of fixed addresses to account for Pokemon Yellow, and possibly rom hacks.
+* Write code to load similar data for Gen II.
+

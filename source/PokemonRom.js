@@ -1,6 +1,9 @@
 import { Rom } from './gameboy/Rom';
 import { BitArray   } from './BitArray';
 
+import { RleDelta } from './decompress/RleDelta';
+import { Merge }    from './decompress/Merge';
+
 export class PokemonRom extends Rom
 {
 	constructor(filename)
@@ -557,6 +560,42 @@ export class PokemonRom extends Rom
 		}
 
 		return learnset;
+	}
+
+	getFrontSprite(index)
+	{
+		return this.getPokemonStats(index).then(stats => {
+			return this.slice(stats.frontSprite.offset);
+		}).then(input => {
+
+			const rleDelta = new RleDelta(input);
+
+			rleDelta.decompress();
+
+			const merge = new Merge(rleDelta.buffer, rleDelta.xSize);
+
+			merge.decompress();
+
+			return merge.buffer;
+		});
+	}
+
+	getBackSprite(index)
+	{
+		return this.getPokemonStats(index).then(stats => {
+			return this.slice(stats.backSprite.offset);
+		}).then(input => {
+
+			const rleDelta = new RleDelta(input);
+
+			rleDelta.decompress();
+
+			const merge = new Merge(rleDelta.buffer, rleDelta.xSize);
+
+			merge.decompress();
+
+			return merge.buffer;
+		});
 	}
 
 	// lzDecompress(start)
