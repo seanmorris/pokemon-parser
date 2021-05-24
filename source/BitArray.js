@@ -78,8 +78,6 @@ export class BitArray
 		{
 			const bit = (byte >> (7 - this.j)) & 0x1;
 
-			// console.log('Got, %d from %s.%d', bit, byte.toString(2).padStart(8,'0'), this.j);
-
 			this.j++;
 
 			if(this.j > 7)

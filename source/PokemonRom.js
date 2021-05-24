@@ -225,11 +225,11 @@ export class PokemonRom extends Rom
 	{
 		let spriteBank;
 
-		if(indexNumber === 0x15)
+		if(indexNumber === 0x14)
 		{
 			spriteBank = 0x1;
 		}
-		else if(indexNumber === 0xB6)
+		else if(indexNumber === 0xB5)
 		{
 			spriteBank = 0xB;
 		}
@@ -237,15 +237,15 @@ export class PokemonRom extends Rom
 		{
 			spriteBank = 0x9;
 		}
-		else if(indexNumber < 0x4A)
+		else if(indexNumber < 0x49)
 		{
 			spriteBank = 0xA;
 		}
-		else if(indexNumber < 0x74)
+		else if(indexNumber < 0x73)
 		{
 			spriteBank = 0xB;
 		}
-		else if(indexNumber < 0x99)
+		else if(indexNumber < 0x98)
 		{
 			spriteBank = 0xC;
 		}
@@ -257,7 +257,9 @@ export class PokemonRom extends Rom
 		return this.getPokemonNumber(indexNumber).then(number => {
 			return this.slice(0x383DE + (28 * (number - 1)), 28).then(buffer => {
 				return {
-					hp:                buffer[1]
+					index:             Number(indexNumber) || indexNumber
+					, number:          buffer[0]
+					, hp:              buffer[1]
 					, attack:          buffer[2]
 					, defense:         buffer[3]
 					, speed:           buffer[4]
@@ -286,6 +288,65 @@ export class PokemonRom extends Rom
 			}
 
 			return Promise.all(promises);
+		});
+	}
+
+	getAllPokemonPalettes()
+	{
+		return this.slice(0x725C9, 150).then(buffer => {
+
+			const used = [];
+
+			for(const byte of buffer)
+			{
+				used.push(byte);
+			}
+
+			return used;
+		});
+	}
+
+	getAllPalettes()
+	{
+		return this.piece(0x72660, 0x7278F).then(buffer => {
+
+			let index = 0;
+
+			const bytes = [];
+
+			this.palettes = [];
+
+			for(const byte of buffer)
+			{
+				if(!this.palettes[ index ])
+				{
+					this.palettes[ index ] = [];
+				}
+
+				bytes.push(byte);
+
+				if(bytes.length >= 8)
+				{
+					const palette = this.palettes[ index ];
+
+					for(let i = 0; i < bytes.length; i += 2)
+					{
+						const binColor = bytes[i] + (bytes[i + 1] << 8);
+
+						palette.push({
+							r:   (binColor & 0b000000000011111) >> 0
+							, g: (binColor & 0b000001111100000) >> 5
+							, b: (binColor & 0b111110000000000) >> 10
+						});
+					}
+
+					bytes.splice(0);
+
+					index++;
+				}
+			}
+
+			return this.palettes;
 		});
 	}
 

@@ -55,16 +55,32 @@ switch(action)
 	case 'pic-back':
 		loaded.then((buffer)=> {
 
-			return rom.getAllIndexNumbers();
+			const getIndex = rom.getAllIndexNumbers();
+			const getPalettes = rom.getAllPalettes();
 
-		}).then(numbers => {
+			return Promise.all([getIndex, getPalettes]);
 
-			return action == 'pic'
-				? rom.getFrontSprite( numbers[ number ] )
-				: rom.getBackSprite( numbers[ number ] );
+		}).then(([index, palettes]) => {
 
-		}).then(bytes => {
-			const size = Math.sqrt(bytes.length);
+			const indexNumber = index[ number ];
+
+			const getPaletteIndex = rom.getAllPokemonPalettes();
+
+			return Promise.all([indexNumber, palettes, getPaletteIndex]);
+
+		}).then(([indexNumber, palettes, paletteIndex]) => {
+			const paletteId = paletteIndex[number-1];
+			const palette   = palettes[paletteId];
+
+			const getPixels = action == 'pic'
+				? rom.getFrontSprite(indexNumber)
+				: rom.getBackSprite(indexNumber);
+
+			return Promise.all([indexNumber, getPixels, palette]);
+
+		}).then(([indexNumber, pixels, palette]) => {
+
+			const size = Math.sqrt(pixels.length);
 			const fs   = require("fs");
 			const PNG  = require("pngjs").PNG;
 
@@ -75,15 +91,45 @@ switch(action)
 
 			const png  = new PNG({width: size, height: size, filterType: 1});
 
-			png.data = new Uint8Array(bytes.length * 4);
+			png.data = new Uint8Array(pixels.length * 4);
 
-			for(let inPixel in bytes)
+			for(let inPixel in pixels)
 			{
 				const outPixel = inPixel * 4;
 
-				png.data[outPixel+0] = bytes[inPixel];
-				png.data[outPixel+1] = bytes[inPixel];
-				png.data[outPixel+2] = bytes[inPixel];
+				let r,g,b;
+
+				if(palette)
+				{
+					if(pixels[inPixel] === 255)
+					{
+						r = palette[0].r * 8;
+						g = palette[0].g * 8;
+						b = palette[0].b * 8;
+					}
+					else if(pixels[inPixel] === 196)
+					{
+						r = palette[1].r * 8;
+						g = palette[1].g * 8;
+						b = palette[1].b * 8;
+					}
+					else if(pixels[inPixel] === 128)
+					{
+						r = palette[2].r * 8;
+						g = palette[2].g * 8;
+						b = palette[2].b * 8;
+					}
+					else if(pixels[inPixel] === 64)
+					{
+						r = palette[3].r * 8;
+						g = palette[3].g * 8;
+						b = palette[3].b * 8;
+					}
+				}
+
+				png.data[outPixel+0] = r || pixels[inPixel];
+				png.data[outPixel+1] = g || pixels[inPixel];
+				png.data[outPixel+2] = b || pixels[inPixel];
 				png.data[outPixel+3] = 255;
 			}
 
