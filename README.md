@@ -321,3 +321,4 @@ $ node index.js ~/pokemon-red.gb
 * Use pointer instead of fixed addresses to account for Pokemon Yellow, and possibly rom hacks.
 * Write code to load similar data for Gen II.
 
+![](https://raw.githubusercontent.com/seanmorris/PokemonExtrator/master/sample-extract.png)
