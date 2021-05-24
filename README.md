@@ -70,15 +70,25 @@ $ npm i -g pokemon-parser
 
 #### Get the sprites for a pokemon:
 
-The `pic` command will print a PNG image of the pokemon's sprite to `STDOUT`.
+The `pic` & `pic-back` commands will print a PNG image of the pokemon's sprite to `STDOUT`. Here, we'll load the sprites for #25, Pikachu:
+
+```bash
+$ pokemon-parser ~/PokemonRed.gb pic 25 > pikachu-front.png
+$ pokemon-parser ~/PokemonRed.gb pic-back 25 > pikachu-back.png
+```
+![Pikachu front sprite fron Generation 1, greyscale](https://raw.githubusercontent.com/seanmorris/PokemonExtrator/master/pikachu-front.png)
+![Pikachu back sprite fron Generation 1, greyscale](https://raw.githubusercontent.com/seanmorris/PokemonExtrator/master/pikachu-back.png)
+
+#### Sprites ith SBG colors:
+
+The `pic-color` & `pic-back-color` commands will print a PNG image of the pokemon's sprite to `STDOUT` with its SBG palette applied. Here, we'll load the sprites for #6, Charizard:
 
 ```bash
 $ pokemon-parser ~/PokemonRed.gb pic 6 > charizard-front.png
-$ pokemon-parser ~/PokemonRed.gb pic-back 6 > charizard-back.png
+$ pokemon-parser ~/PokemonRed.gb pic-back 25 > charizard-back.png
 ```
-
-![Charizard front sprite fron Generation 1](https://raw.githubusercontent.com/seanmorris/PokemonExtrator/master/charizard-front.png)
-![Charizard back sprite fron Generation 1](https://raw.githubusercontent.com/seanmorris/PokemonExtrator/master/charizard-back.png)
+![Charizard front sprite fron Generation 1, greyscale](https://raw.githubusercontent.com/seanmorris/PokemonExtrator/master/charizard-color-front.png)
+![Charizard back sprite fron Generation 1, greyscale](https://raw.githubusercontent.com/seanmorris/PokemonExtrator/master/charizard-color-back.png)
 
 #### Get all pokedex info:
 

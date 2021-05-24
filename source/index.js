@@ -4,7 +4,9 @@ import { PokemonRom } from './PokemonRom';
 
 const args = process.argv.slice(2);
 
-let [source,action,number] = args;
+const [source, action, ...query] = args;
+
+const [number,] = query;
 
 if(Number(action) == action)
 {
@@ -14,6 +16,8 @@ if(Number(action) == action)
 
 const rom    = new PokemonRom(source);
 const loaded = rom.preload();
+
+let color = false;
 
 switch(action)
 {
@@ -51,8 +55,11 @@ switch(action)
 		});
 		break;
 
-	case 'pic':
+	case 'pic-back-color':
+	case 'pic-color':
+		color = true;
 	case 'pic-back':
+	case 'pic':
 		loaded.then((buffer)=> {
 
 			const getIndex = rom.getAllIndexNumbers();
@@ -72,7 +79,7 @@ switch(action)
 			const paletteId = paletteIndex[number-1];
 			const palette   = palettes[paletteId];
 
-			const getPixels = action == 'pic'
+			const getPixels = (action == 'pic' || action == 'pic-color')
 				? rom.getFrontSprite(indexNumber)
 				: rom.getBackSprite(indexNumber);
 
@@ -99,7 +106,7 @@ switch(action)
 
 				let r,g,b;
 
-				if(palette)
+				if(color && palette)
 				{
 					if(pixels[inPixel] === 255)
 					{
