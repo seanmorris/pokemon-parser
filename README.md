@@ -84,11 +84,11 @@ $ pokemon-parser ~/PokemonRed.gb pic-back 25 > pikachu-back.png
 The `pic-color` & `pic-back-color` commands will print a PNG image of the pokemon's sprite to `STDOUT` with its SBG palette applied. Here, we'll load the sprites for #6, Charizard:
 
 ```bash
-$ pokemon-parser ~/PokemonRed.gb pic 6 > charizard-front.png
-$ pokemon-parser ~/PokemonRed.gb pic-back 25 > charizard-back.png
+$ pokemon-parser ~/PokemonRed.gb pic-color 6 > charizard-front-color.png
+$ pokemon-parser ~/PokemonRed.gb pic-back-color 25 > charizard-back-color.png
 ```
-![Charizard front sprite fron Generation 1, greyscale](https://raw.githubusercontent.com/seanmorris/PokemonExtrator/master/charizard-color-front.png)
-![Charizard back sprite fron Generation 1, greyscale](https://raw.githubusercontent.com/seanmorris/PokemonExtrator/master/charizard-color-back.png)
+![Charizard front sprite fron Generation 1, greyscale](https://raw.githubusercontent.com/seanmorris/PokemonExtrator/master/charizard-front-color.png)
+![Charizard back sprite fron Generation 1, greyscale](https://raw.githubusercontent.com/seanmorris/PokemonExtrator/master/charizard-back-color.png)
 
 #### Get all pokedex info:
 
