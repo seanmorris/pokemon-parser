@@ -8,21 +8,34 @@ export class Merge
 		this.size   = input.length;
 		this.input  = new BitArray(input);
 		this.buffer = new Uint8Array(width**2);
+
+		this.i = 0;
 	}
 
 	decompress()
 	{
+		while(this.iterate());
+	}
+
+	iterate()
+	{
 		const pallet = [255,128,196,64];
 		const halfLength = this.input.length / 2;
 
-		for(let i = 0; i < halfLength; i++)
+		if(this.i < halfLength)
 		{
-			const b1 = this.input.get(this.pixelToRowPixel(i));
-			const b2 = this.input.get(this.pixelToRowPixel(i)+this.width**2);
+			const b1 = this.input.get(this.pixelToRowPixel(this.i));
+			const b2 = this.input.get(this.pixelToRowPixel(this.i)+this.width**2);
 			const b  = b1 << 1 | b2;
 
-			this.buffer[i] = pallet[b];
+			this.buffer[this.i] = pallet[b];
+
+			this.i++;
+
+			return true;
 		}
+
+		return false;
 	}
 
 	pixelToRowPixel(pixel)

@@ -3,16 +3,17 @@ import { BitArray } from '../BitArray';
 export class RleDelta
 {
 	tileSize   = 8
-	fillMode   = null;
 	lastBit    = 0;
-	deltaCount = 0;
+	fillMode   = null;
 	fillCount  = 0;
+	deltaCount = 0;
 	xorCount   = 0;
 
 	constructor(input)
 	{
-		this.input = input;
+		this.mode  = null;
 		this.bits  = new BitArray(input);
+		this.input = input;
 
 		this.xSize = this.bits.next(4) || 7;
 		this.ySize = this.bits.next(4) || 7;
@@ -32,72 +33,240 @@ export class RleDelta
 
 		this.bufferA = new Uint8Array(this.buffer.buffer, this.buffSize*0, this.buffSize*1);
 		this.bufferB = new Uint8Array(this.buffer.buffer, this.buffSize*1, this.buffSize*1);
+
+		this.step1  = -1;
+		this.step2  = -1;
+		this.step3  = -1;
+		this.step3b = -1;
 	}
 
 	decompress()
 	{
-		const buffer  = this.buffer;
-		const bits    = this.bits;
-		const xSize   = this.xSize;
-		const ySize   = this.ySize;
-		const size    = this.size;
+		while(this.decompressBufferFirst());
+
+		while(this.decompressBufferSecond());
+
+		while(this.decompressDelta());
+	}
+
+	iterate()
+	{
+		if(this.step1 <= 0)
+		{
+			this.decompressBufferFirst();
+		}
+		else if(this.step2 <= 0)
+		{
+			this.decompressBufferSecond();
+		}
+		else if(this.step3 <= 0)
+		{
+			this.decompressDelta();
+		}
+		else if(this.step3 === 1)
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	decompressBufferFirst()
+	{
+		if(this.step1 >= 1)
+		{
+			return false;
+		}
 
 		const buffers = [new BitArray(this.bufferA), new BitArray(this.bufferB)];
 
-		const order = bits.next();
-
-		const bufA  = buffers[order];
-		const bufB  = buffers[order ^ 1];
-
-		this.fillCount = 0;
-		this.fillMode  = bits.next();
-
-		while(this.fillBuffer(bufA, bits, xSize, size));
-
-		let mode = bits.next();
-
-		if(mode === 1)
+		if(this.step1 === -1)
 		{
-			mode = 1 + bits.next();
+			const order = this.bits.next();
+
+			this.bufA = buffers[order];
+			this.bufB = buffers[order ^ 1];
+
+			this.fillMode  = this.bits.next();
+			this.fillCount = 0;
+
+			this.step1 = 0;
 		}
 
-		this.fillCount = 0;
-		this.fillMode  = bits.next();
+		const more = this.fillBuffer(this.bufA, this.bits, this.xSize, this.size);
 
-		while(this.fillBuffer(bufB, bits, xSize, size));
+		if(more)
+		{
+			return true;
+		}
+		else
+		{
+			this.step1 = 1;
 
-		switch(mode)
+			return false;
+		}
+	}
+
+	decompressBufferSecond()
+	{
+		if(this.step2 >= 1)
+		{
+			return false;
+		}
+
+		if(this.step2 === -1)
+		{
+			this.mode = this.bits.next();
+
+			if(this.mode === 1)
+			{
+				this.mode = 1 + this.bits.next();
+			}
+
+			this.fillMode  = this.bits.next();
+			this.fillCount = 0;
+
+			this.step2 = 0;
+		}
+
+		const more = this.fillBuffer(this.bufB, this.bits, this.xSize, this.size);
+
+		if(more)
+		{
+			return true;
+		}
+		else
+		{
+			this.step2 = 1;
+
+			return false;
+		}
+	}
+
+	decompressDelta()
+	{
+		switch(this.mode)
 		{
 			case 0:
 
-				this.deltaCount = 0;
-				while( this.deltaFill(bufA, xSize) );
+				if(this.step3b === -1)
+				{
+					this.deltaCount = 0;
+					this.step3b = 0;
+				}
+				else if(this.step3b === 0)
+				{
+					if(!this.deltaFill(this.bufA, this.xSize))
+					{
+						this.step3b = 1;
+					}
+				}
+				else if(this.step3b === 1)
+				{
+					this.deltaCount = 0;
+					this.step3b = 2;
+				}
+				else if(this.step3b === 2)
+				{
+					if(!this.deltaFill(this.bufB, this.xSize))
+					{
+						this.step3b = 3;
+					}
+				}
+				else
+				{
+					this.step3 = 1;
 
-				this.deltaCount = 0;
-				while( this.deltaFill(bufB, xSize) );
+					return false;
+				}
+
+				return true;
 
 				break;
 
 			case 1:
 
-				this.deltaCount = 0;
-				while( this.deltaFill(bufA, xSize) );
+				if(this.step3b === -1)
+				{
+					this.deltaCount = 0;
+					this.step3b = 0;
+				}
+				else if(this.step3b === 0)
+				{
+					if(!this.deltaFill(this.bufA, this.xSize))
+					{
+						this.step3b = 1;
+					}
+				}
+				else if(this.step3b === 1)
+				{
+					this.xorCount = 0;
+					this.step3b = 2;
+				}
+				else if(this.step3b === 2)
+				{
+					if(!this.xorFill(this.bufA, this.bufB))
+					{
+						this.step3b = 3;
+					}
+				}
+				else
+				{
+					this.step3 = 1;
 
-				this.xorCount = 0;
-				while( this.xorFill(bufA, bufB) );
+					return false;
+				}
+
+				return true;
 
 				break;
 
 			case 2:
 
-				this.deltaCount = 0;
-				while( this.deltaFill(bufA, xSize) );
+				if(this.step3b === -1)
+				{
+					this.deltaCount = 0;
+					this.step3b = 0;
+				}
+				else if(this.step3b === 0)
+				{
+					if(!this.deltaFill(this.bufA, this.xSize))
+					{
+						this.step3b = 1;
+					}
+				}
+				else if(this.step3b === 1)
+				{
+					this.deltaCount = 0;
+					this.step3b = 2;
+				}
+				else if(this.step3b === 2)
+				{
+					if(!this.deltaFill(this.bufB, this.xSize))
+					{
+						this.step3b = 3;
+					}
+				}
+				else if(this.step3b === 3)
+				{
+					this.xorCount = 0;
+					this.step3b = 4;
+				}
+				else if(this.step3b === 4)
+				{
+					if(!this.xorFill(this.bufA, this.bufB))
+					{
+						this.step3b = 5;
+					}
+				}
+				else
+				{
+					this.step3 = 1;
 
-				this.deltaCount = 0;
-				while( this.deltaFill(bufB, xSize) );
+					return false;
+				}
 
-				this.xorCount = 0;
-				while( this.xorFill(bufA, bufB) );
+				return true;
 
 				break;
 		}
