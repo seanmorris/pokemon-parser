@@ -12,7 +12,9 @@
     "rle"
   ],
   "license": "Apache-2.0",
-  "dependencies": {},
+  "dependencies": {
+    "pngjs": "^6.0.0"
+  },
   "devDependencies": {
     "@babel/cli": "^7.12.10",
     "@babel/core": "^7.12.10",
