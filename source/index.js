@@ -21,6 +21,11 @@ let color = false;
 
 switch(action)
 {
+	case 'maps':
+		loaded.then(() => rom.getAllMaps()).then(headers => {
+			headers.forEach(h => console.log(JSON.stringify(h)));
+		});
+		break;
 	case 'dex':
 		loaded.then(() => rom.getAllIndexNumbers()).then(numbers => {
 

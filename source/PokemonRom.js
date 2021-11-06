@@ -198,6 +198,64 @@ export class PokemonRom extends Rom
 		});
 	}
 
+	getAllMaps()
+	{
+		return this.piece(0xC7BE, 0xC8DD).then(buffer => {
+			console.log(buffer.length);
+			const headers = [];
+			let cursor = 0;
+			while(cursor < buffer.length)
+			{
+				console.log(cursor);
+
+				const tilesetId      = buffer.slice(cursor + 0, cursor + 1);
+				const mapHeight      = buffer.slice(cursor + 1, cursor + 2);
+				const mapWidth       = buffer.slice(cursor + 2, cursor + 3);
+				const mapPointer     = buffer.slice(cursor + 3, cursor + 5);
+				const textPointer    = buffer.slice(cursor + 5, cursor + 7);
+				const scriptPointer  = buffer.slice(cursor + 7, cursor + 9);
+				const connectionByte = buffer.slice(cursor + 9, cursor + 10);
+
+				const north = connectionByte & (1 >> 3);
+				const south = connectionByte & (1 >> 2);
+				const west  = connectionByte & (1 >> 1);
+				const east  = connectionByte & (1 >> 0);
+
+				const activeConnections = [north, south, west, east].filter(x=>x);
+
+				cursor += 10;
+
+				const connections = [];
+
+				const mapHeader = {
+					tilesetId, mapHeight, mapWidth, mapPointer
+					, textPointer, scriptPointer, connectionByte
+					, connections
+				};
+
+				for(let c = 0; c < activeConnections.length; c++)
+				{
+					const connection = buffer.slice((0+c)*11, (1+c)*11);
+
+					connections.push(connection);
+
+					cursor += 11;
+				}
+
+
+				const objectsPointer = buffer.slice(21, 23);
+
+				mapHeader.objectsPointer = objectsPointer;
+
+				headers.push(mapHeader);
+
+				cursor += 2;
+			}
+
+			return headers;
+		});
+	}
+
 	getPokemonName(indexNumber)
 	{
 		return this.slice(0x2FA3, 1).then((buffer) => {
