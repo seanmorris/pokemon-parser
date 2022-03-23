@@ -294,6 +294,14 @@ $ pokemon-parser ~/PokemonRed.gb dex 25
 }
 ```
 
+#### Exporting Maps
+
+Running the following command will export all maps to tiled JSON files, with the blockfiles exported to PNGs.
+
+```bash
+$ node index.js ~/pokemon-red.gb maps
+```
+
 ## Developing
 
 ### Build

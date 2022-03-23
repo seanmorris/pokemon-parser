@@ -198,61 +198,295 @@ export class PokemonRom extends Rom
 		});
 	}
 
+	getTileFromSet(address, offset)
+	{
+
+	}
+
+	getBlockFromSet(address, blockId)
+	{
+		return this.buffer.slice(
+			address + (0+blockId) * 16
+			, address + (1+blockId) * 16
+		);
+	}
+
+	blockToTiles()
+	{
+	}
+
+	getAllTilesets()
+	{
+		return this.piece(0xC7BE, 0xC8DE).then(headers => {
+
+			const tilesets = [];
+
+			for(let c = 0; c < 24; c++)
+			{
+				const header = headers.slice((0+c) * 12, (1+c) * 12);
+
+				const bank = header[0];
+
+				const blockPointer = this.makeRef(bank, header.slice(1,3));
+				const tilePointer  = this.makeRef(bank, header.slice(3,5));
+				const collisionPointer = this.makeRef(bank, header.slice(5,7));
+
+				const talkTiles = header.slice(7,10);
+				const grass     = header[10];
+				const animation = header[11];
+
+				tilesets.push({
+					tilePointer
+					, blockPointer
+					, collisionPointer
+					, grass
+					, animation
+				});
+			}
+
+			return tilesets;
+		});
+
+		// 0x64000 - 0x67FFF
+		// 0x68000 - 0x6AFF8
+		// 0x6B5E8 - 0x6BFFF
+		// 0x6C000 - 0x6EB0B
+	}
+
 	getAllMaps()
 	{
-		return this.piece(0xC7BE, 0xC8DD).then(buffer => {
-			console.log(buffer.length);
-			const headers = [];
-			let cursor = 0;
-			while(cursor < buffer.length)
+		const pieces = [
+			this.piece(0x01AE, 0x039E)
+			, this.piece(0xC23D, 0xC335)
+		];
+
+		return Promise.all(pieces).then(([offsets, banks]) => {
+
+			const mapPointers = [];
+
+			for(const i in banks)
 			{
-				console.log(cursor);
+				const bank    = banks[i];
+				const offset  = offsets.slice(i*2, i*2 + 2);
 
-				const tilesetId      = buffer.slice(cursor + 0, cursor + 1);
-				const mapHeight      = buffer.slice(cursor + 1, cursor + 2);
-				const mapWidth       = buffer.slice(cursor + 2, cursor + 3);
-				const mapPointer     = buffer.slice(cursor + 3, cursor + 5);
-				const textPointer    = buffer.slice(cursor + 5, cursor + 7);
-				const scriptPointer  = buffer.slice(cursor + 7, cursor + 9);
-				const connectionByte = buffer.slice(cursor + 9, cursor + 10);
+				const pointer = this.makeRef(bank, offset);
 
-				const north = connectionByte & (1 >> 3);
-				const south = connectionByte & (1 >> 2);
-				const west  = connectionByte & (1 >> 1);
-				const east  = connectionByte & (1 >> 0);
+				mapPointers.push([bank, pointer]);
+			}
 
-				const activeConnections = [north, south, west, east].filter(x=>x);
+			const maps = [];
 
-				cursor += 10;
+			for(const [bank, mapPointer] of mapPointers)
+			{
+				const tilesetId = this.buffer[0 + mapPointer];
+				const height    = this.buffer[1 + mapPointer];
+				const width     = this.buffer[2 + mapPointer];
+
+				const tilePointer    = this.makeRef(bank, this.buffer.slice(3 + mapPointer, 5 + mapPointer));
+				const textPointers   = this.buffer.slice(5 + mapPointer, 7 + mapPointer);
+				const scriptPointer  = this.buffer.slice(7 + mapPointer, 9 + mapPointer);
+				const connectionByte = this.buffer[9 + mapPointer];
+
+				const east  = connectionByte & (1 << 0);
+				const west  = connectionByte & (1 << 1);
+				const south = connectionByte & (1 << 2);
+				const north = connectionByte & (1 << 3);
+
+				const activeConnections = [north, south, west, east].filter(x=>x).length;
+
+				const objectPointer = this.buffer[10 + 11 * activeConnections + mapPointer];
 
 				const connections = [];
 
-				const mapHeader = {
-					tilesetId, mapHeight, mapWidth, mapPointer
-					, textPointer, scriptPointer, connectionByte
-					, connections
-				};
-
-				for(let c = 0; c < activeConnections.length; c++)
+				for(let c = 0; c < activeConnections; c ++)
 				{
-					const connection = buffer.slice((0+c)*11, (1+c)*11);
+					const connection = this.buffer.slice((0+c)*11 + mapPointer, (1+c)*11 + mapPointer);
 
 					connections.push(connection);
-
-					cursor += 11;
 				}
 
+				const blockIds = this.deref(tilePointer, null, width * height);
 
-				const objectsPointer = buffer.slice(21, 23);
-
-				mapHeader.objectsPointer = objectsPointer;
-
-				headers.push(mapHeader);
-
-				cursor += 2;
+				maps.push({
+					tilesetId
+					, tileset: null
+					, height
+					, width
+					, bank
+					, tilePointer
+					, textPointers
+					, scriptPointer
+					, connectionByte
+					, north, south, west, east
+					, objectPointer
+					, blockIds
+				});
 			}
 
-			return headers;
+			return Promise.all([maps, this.getAllTilesets()]);
+		}).then(([maps, tilesets]) => {
+
+			for(const map of maps)
+			{
+				const tileset = map.tileset = tilesets[ map.tilesetId ];
+
+				const blocks = {};
+
+				const tiles = {};
+
+				if(!map.tileset)
+				{
+					continue;
+				}
+
+				for(const blockId of map.blockIds)
+				{
+					const blockOffset = map.tileset.blockPointer + blockId * 16;
+
+					if(blocks[blockId])
+					{
+						continue;
+					}
+
+					const block = this.buffer.slice(0 + blockOffset, 16 + blockOffset);
+
+					blocks[blockId] = block;
+
+					for(const tileId of block)
+					{
+						const tileOffset = map.tileset.tilePointer + tileId * 16;
+
+						const tile = this.buffer.slice(0 + tileOffset, 16 + tileOffset);
+
+						tiles[tileId] = tile;
+					}
+				}
+
+				if(!tiles)
+				{
+					return;
+				}
+
+				const pallet = [255,128,196,64];
+
+				const ansi = [
+					  x => `\x1b[48;2;255;255;255m\x1b[38;2;192;192;192m${x}\x1b[0m`
+					, x => `\x1b[48;2;128;128;128m\x1b[38;2;64;64;64m${x}\x1b[0m`
+					, x => `\x1b[48;2;196;196;196m\x1b[38;2;128;128;128m${x}\x1b[0m`
+					, x => `\x1b[48;2;64;64;64m\x1b[38;2;32;32;32m${x}\x1b[0m`
+				];
+
+				// console.log(map);
+
+				const renderedTiles = {};
+
+				Object.keys(tiles).forEach(tileIndex => {
+
+					const tile = tiles[tileIndex];
+
+					// console.log(tile, tileIndex);
+
+					const bitPairs = [];
+
+					let i = 0;
+
+					while(i < 16)
+					{
+						const byteA = tile[i++];
+						const byteB = tile[i++];
+
+						const colors = [
+							(((byteA & 0b10000000) << 1) | (byteB & 0b10000000)) >> 7
+							, (((byteA & 0b01000000) << 1) | (byteB & 0b01000000)) >> 6
+							, (((byteA & 0b00100000) << 1) | (byteB & 0b00100000)) >> 5
+							, (((byteA & 0b00010000) << 1) | (byteB & 0b00010000)) >> 4
+							, (((byteA & 0b00001000) << 1) | (byteB & 0b00001000)) >> 3
+							, (((byteA & 0b00000100) << 1) | (byteB & 0b00000100)) >> 2
+							, (((byteA & 0b00000010) << 1) | (byteB & 0b00000010)) >> 1
+							, (((byteA & 0b00000001) << 1) | (byteB & 0b00000001)) >> 0
+						];
+
+						bitPairs.push(...colors);
+					}
+
+					// console.log([...tile].map(b => b.toString(16).padStart(2,'0')).join(' '));
+
+					for(const i in bitPairs)
+					{
+						const bp = bitPairs[i];
+
+						process.stdout.write( ansi[bp]('  ') )
+
+						if(i % 8 === 7)
+						{
+							process.stdout.write( `\n` );
+						}
+					}
+
+					process.stdout.write( `\n` );
+
+					renderedTiles[tileIndex] = bitPairs;
+				});
+
+
+				const renderedBlocks = {};
+
+				for(const blockId in blocks)
+				{
+					if(renderedBlocks[blockId])
+					{
+						continue;
+					}
+
+					const block = blocks[blockId];
+
+					const lines = Array(32).fill().map(l => Array(32).fill(0));
+					const bytes = Array(32).fill().map(l => Array(32).fill(0));
+
+					for(const tileIndex in block)
+					{
+						const tileId = block[tileIndex];
+						const tile   = renderedTiles[tileId];
+
+						if(!tile)
+						{
+							// console.log({tileIndex, tileId});
+							continue;
+						}
+
+						const tileX = 8 * (tileIndex % 4);
+						const tileY = 8 * Math.floor(tileIndex / 4);
+
+						for(let i = 0; i < 8; i++)
+						{
+							const x = i + tileX;
+
+							for(let j = 0; j < 8; j++)
+							{
+								const y = j + tileY;
+
+								lines[y][x] = tile[i + j * 8];
+								bytes[y][x] = tile[i + j * 8];
+							}
+						}
+					}
+
+					// for(const line of lines)
+					// {
+					// 	line.map(b => process.stdout.write( ansi[b]('  ') ) )
+					// 	console.log(' ');
+					// }
+
+					// console.log(' ');
+
+					renderedBlocks[blockId] = [].concat(...bytes);
+				}
+
+				map.renderedBlocks = renderedBlocks;
+				map.blocks = blocks;
+			}
+
+			return maps;
 		});
 	}
 
