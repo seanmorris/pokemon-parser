@@ -322,11 +322,7 @@ $ node index.js ~/pokemon-red.gb
 
 ## TODO
 
-* Load TM/HM move learnsets.
 * Load encounter locations.
-* Load color palette for pokemon when producing PNGs for sprites.
-* Account for edge case involving locations for Mew's stats & sprite locations.
-* Use pointer instead of fixed addresses to account for Pokemon Yellow, and possibly rom hacks.
 * Write code to load similar data for Gen II.
 
 ![](https://raw.githubusercontent.com/seanmorris/PokemonExtrator/master/sample-extract.png)

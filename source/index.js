@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+const fs  = require("fs");
+
 import { PokemonRom } from './PokemonRom';
 import { TiledMap } from './TiledMap';
 
@@ -22,76 +24,191 @@ let color = false;
 
 switch(action)
 {
+	case 'sprites':
+
+		loaded
+		.then(() => rom.getSprites())
+		.then(spriteChunks => {
+
+			console.log(spriteChunks);
+
+			for(const i in spriteChunks)
+			{
+				const spriteData = spriteChunks[i];
+
+				const PNG = require("pngjs").PNG;
+
+				if(!PNG)
+				{
+					throw new Error("Library \"PNGJS\" is required to produce PNGs!\nSee https://www.npmjs.com/package/pngjs for more info.");
+				}
+
+				const png = new PNG({width: 16, height: Math.ceil(spriteData.length / 128), filterType: 1});
+
+				png.data = spriteData;
+
+				const blockFile = `sprites-yellow-${i}-exported.png`;
+
+				png.pack().pipe(fs.createWriteStream('./' + blockFile));
+			}
+
+		});
+
+		break;
+
 	case 'maps':
+
 		loaded
 		.then(() => rom.getAllMaps())
-		.then(maps => maps.forEach((map,mapIndex) => {
+		.then(([maps,tilesets]) => {
 
-			if(!map.renderedBlocks)
-			{
-				return;
-			}
+			const tilesBySet = {};
 
-			const blockIds = Object.keys(map.renderedBlocks);
+			maps.forEach((map, mapIndex) => {
 
-			const PNG = require("pngjs").PNG;
-
-			if(!PNG)
-			{
-				throw new Error("Library \"PNGJS\" is required to produce PNGs!\nSee https://www.npmjs.com/package/pngjs for more info.");
-			}
-
-			const png = new PNG({width: 32, height: blockIds.length * 32, filterType: 1});
-			const fs  = require("fs");
-
-			png.data = new Uint8Array(blockIds.length * 32 * 32 * 4);
-
-			const blockKey = {};
-
-			for(const blockIndex in blockIds)
-			{
-				const blockId = blockIds[blockIndex];
-
-				blockKey[blockId] = blockIndex;
-
-				const block = map.renderedBlocks[blockId];
-
-				for(const inPixel in block)
+				if(!map.renderedBlocks)
 				{
-					const outPixel = blockIndex * 32 * 32 * 4 + inPixel * 4;
-
-					const color = block[inPixel];
-
-					png.data[outPixel+0] = 255 + -80 * color;
-					png.data[outPixel+1] = 255 + -80 * color;
-					png.data[outPixel+2] = 255 + -80 * color;
-					png.data[outPixel+3] = 255;
+					return;
 				}
-			}
 
-			const mapName = `map-${String(mapIndex).padStart(2,'0')}`;
-			const mapFile = `maps/${mapName}.json`;
+				const tilesetFile = `tileset-${map.tilesetId}.png`;
+				const mapName     = `map-${String(mapIndex).padStart(2,'0')}`;
+				const mapFile     = `maps/yellow/${mapName}.json`;
+				const blockFile   = `${mapName}_blocks-${map.tilesetId}.png`;
 
-			const tilesetFile = `${mapName}_tileset-${map.tilesetId}.png`;
+				const tileIds  = Object.keys(map.renderedTiles);
 
-			png.pack().pipe(fs.createWriteStream('maps/' + tilesetFile));
-
-			const mapData = TiledMap(
-				[...map.blockIds.map(b => 1 + Number(blockKey[b]))]
-				, tilesetFile
-				, map.width
-				, map.height
-			);
-
-			fs.writeFile(mapFile, JSON.stringify(mapData), error => {
-				if(error)
+				for(const tileIndex in tileIds)
 				{
-					console.error(error)
-					return
+					const tileId = tileIds[tileIndex];
+
+					const tile = map.renderedTiles[tileId];
+
+					tilesBySet[map.tilesetId] = tilesBySet[map.tilesetId] || {};
+
+					tilesBySet[map.tilesetId][tileId] = tile;
 				}
+
+				const blockIds = Object.keys(map.renderedBlocks);
+
+				const localBlockIds = Object.fromEntries(blockIds.map((v,k) => {return [v,k]}));
+
+				const PNG = require("pngjs").PNG;
+
+				if(!PNG)
+				{
+					throw new Error("Library \"PNGJS\" is required to produce PNGs!\nSee https://www.npmjs.com/package/pngjs for more info.");
+				}
+
+				const png = new PNG({width: 32, height: blockIds.length * 32, filterType: 1});
+				png.data = new Uint8Array(blockIds.length * 32 * 32 * 4);
+
+				const blockKey = {};
+
+				for(const blockIndex in blockIds)
+				{
+					const blockId = blockIds[blockIndex];
+
+					blockKey[blockId] = blockIndex;
+
+					const block = map.renderedBlocks[blockId];
+
+					for(const inPixel in block)
+					{
+						const outPixel = blockIndex * 32 * 32 * 4 + inPixel * 4;
+
+						const color = block[inPixel];
+
+						png.data[outPixel+0] = 255 + -80 * color;
+						png.data[outPixel+1] = 255 + -80 * color;
+						png.data[outPixel+2] = 255 + -80 * color;
+						png.data[outPixel+3] = 255;
+					}
+				}
+
+				for(const blockIndex in map.blockIds)
+				{
+					const blockId = map.blockIds[blockIndex];
+
+					map.blockPlane[ blockIndex ] = -1 + localBlockIds[blockId];
+				}
+
+				// console.log( map.blockPlane );
+				// process.exit();
+
+				const mapData = TiledMap(
+					mapName
+					, [...map.tilePlane]
+					, [...map.solidPlane]
+					, tilesetFile
+					, map.width*4
+					, map.height*4
+					, 8
+				);
+
+				// const mapData = TiledMap(
+				// 	mapName
+				// 	, [...map.blockPlane]
+				// 	, [...map.blockPlane]
+				// 	, blockFile
+				// 	, map.width
+				// 	, map.height
+				// 	, 32
+				// );
+
+				fs.writeFile(mapFile, JSON.stringify(mapData, null, 4), error => {
+					if(error)
+					{
+						console.error(error)
+						return
+					}
+				});
+
+				if(png.data.length)
+				{
+					png.pack().pipe(fs.createWriteStream('maps/yellow/' + blockFile));
+				}
+
 			});
 
-		}));
+			Object.keys(tilesBySet).forEach(tilesetIndex => {
+				const PNG = require("pngjs").PNG;
+
+				if(!PNG)
+				{
+					throw new Error("Library \"PNGJS\" is required to produce PNGs!\nSee https://www.npmjs.com/package/pngjs for more info.");
+				}
+				const tileset   = tilesBySet[tilesetIndex];
+				const maxTileId = 1+Math.max(...Object.keys(tileset));
+
+				const png = new PNG({width: 8, height: maxTileId * 8, filterType: 1});
+				png.data = new Uint8Array(maxTileId * 8 * 8 * 4);
+
+				for(const tileIndex in tileset)
+				{
+					const tile = tileset[tileIndex];
+
+					for(const inPixel in tile)
+					{
+						const outPixel = tileIndex * 8 * 8 * 4 + inPixel * 4;
+
+						const color = tile[inPixel];
+
+						png.data[outPixel+0] = 255 + -80 * color;
+						png.data[outPixel+1] = 255 + -80 * color;
+						png.data[outPixel+2] = 255 + -80 * color;
+						png.data[outPixel+3] = 255;
+					}
+				}
+
+				const file = `tileset-${tilesetIndex}.png`;
+
+				png.pack().pipe(fs.createWriteStream('maps/yellow/' + file));
+			});
+
+			// console.log(tilesBySet);
+		});
+
 		break;
 	case 'dex':
 		loaded.then(() => rom.getAllIndexNumbers()).then(numbers => {
@@ -105,22 +222,17 @@ switch(action)
 					return;
 				}
 
-				rom.getPokemon(dexNumber).then(pokemon => {
-
-					process.stdout.write(JSON.stringify(pokemon, null, 4) + "\n");
-
-				});
+				rom.getPokemon(dexNumber)
+				.then(pokemon => process.stdout.write(JSON.stringify(pokemon, null, 4) + "\n"));
 			}
 			else
 			{
 				rom.getAllPokemon().then(allPokemon => {
-
-					allPokemon = allPokemon.filter(a => a.number).sort((a,b)=>{
-						return a.number - b.number;
-					});
+					allPokemon = allPokemon
+					.filter(a => a.number)
+					.sort((a,b)=> a.number - b.number);
 
 					process.stdout.write(JSON.stringify(allPokemon, null, 4) + "\n");
-
 				});
 			}
 

@@ -1,14 +1,17 @@
-import { Rom } from './gameboy/Rom';
-import { BitArray   } from './BitArray';
+import { BitArray   }  from './BitArray';
+import { Rom }         from './gameboy/Rom';
 
-import { RleDelta } from './decompress/RleDelta';
-import { Merge }    from './decompress/Merge';
+import { Gameboy2bpp } from './decompress/Gameboy2bpp';
+import { RleDelta }    from './decompress/RleDelta';
+import { Merge }       from './decompress/Merge';
 
 export class PokemonRom extends Rom
 {
-	constructor(filename)
+	constructor(filename, isYellow = false)
 	{
 		super(filename);
+
+		this.offsets = {};
 
 		this.textCodes = {
 			0x4F: '  '
@@ -115,6 +118,122 @@ export class PokemonRom extends Rom
 		}
 	}
 
+	preload(buffer)
+	{
+		const preload = super.preload(buffer);
+
+		preload.then(() => {
+
+			if(this.title === 'POKEMON YELLOW')
+			{
+				this.offsets = {
+					dexOrder: 0x410B1,
+					dexStart: 0x4050b,
+					dexEnd:   0x4050b + 380,
+
+					typesStart: 0x27D99,
+					typesEnd:   0x27DFE,
+
+					movesStart: 0xBC000,
+					movesEnd:   0xBC60F,
+
+					namesStart: 0xE8000,
+
+					levelUp: 0x3B1E5,
+
+					palletPointers: 0x72922,
+					palletStart:    0x729b9,
+					palletEnd:      0x7358f,
+
+					overworldAStart: 0x12365,
+					overworldAEnd:   0x13765,
+
+					overworldBStart: 0x143F1,
+					overworldBEnd:   0x17C31,
+
+					overworldCStart: 0x411E5,
+					overworldCEnd:   0x413E5,
+
+					overworldDStart: 0xE91B,
+					overworldDEnd:   0xED1B,
+
+					overworldEStart: 0x78237,
+					overworldEEnd:   0x78D97,
+
+					overworldFStart: 0xFE66F,
+					overworldFEnd:   0xFF26F,
+
+					titleScreenExtraA: 0xF470B,
+					titleScreenExtraB: 0xFA36A,
+
+					tilesetStart: 0xC558,
+					tilesetEnd:   0xC678,
+
+					mapAStart: 0xFC1F2,
+					mapAEnd:   0xFC2EA,
+
+					mapBStart: 0xFC3E4,
+					mapBEnd:   0xFC3E4+248,
+
+					tmStart: 0x1232D,
+					tmEnd:   0x1232D + 55,
+				};
+			}
+			else if(this.title === 'POKEMON RED' || this.title === 'POKEMON BLUE')
+			{
+				this.offsets = {
+					dexOrder: 0x41024,
+					dexStart: 0x4047E,
+					dexEnd:   0x405FA,
+
+					typesStart: 0x27DE4,
+					typesEnd:   0x27E49,
+
+					movesStart: 0xB0000,
+					movesEnd:   0xB060E,
+
+					namesStart: 0x1c21e,
+
+					levelUp: 0x3B05C,
+
+					palletPointers: 0x725C9,
+					palletStart:    0x72660,
+					palletEnd:      0x7278F,
+
+					overworldAStart: 0x10000,
+					overworldAEnd:   0x11380,
+
+					overworldBStart: 0x14000,
+					overworldBEnd:   0x17840,
+
+					overworldCStart: 0x17CBD,
+					overworldCEnd:   0x17D7D,
+
+					overworldDStart: 0xEA9E,
+					overworldDEnd:   0xEE9E,
+
+					overworldEStart: 0x781FE,
+					overworldEEnd:   0x78D3E,
+
+					tilesetStart: 0xC7BE,
+					tilesetEnd:   0xC8DE,
+
+					mapAStart: 0x01AE,
+					mapAEnd:   0x039E,
+
+					mapBStart: 0xC23D,
+					mapBEnd:   0xC335,
+
+					tmStart: 0x13773,
+					tmEnd:   0x137AA,
+				};
+			}
+
+		});
+
+		return preload;
+	}
+
 	decodeText(buffer)
 	{
 		let text = '';
@@ -135,14 +254,16 @@ export class PokemonRom extends Rom
 
 	getAllTypes()
 	{
-		return this.types = this.types || this.piece(0x27DE4, 0x27E49).then((buffer) => {
-			return this.decodeText(buffer).split(' ');
-		});
+		return this.types = this.types || this
+		.piece(this.offsets.typesStart, this.offsets.typesEnd)
+		.then((buffer) => this.decodeText(buffer).split(' '));
 	}
 
 	getAllMoves()
 	{
-		return this.moves = this.moves || this.piece(0xB0000, 0xB060E).then((buffer) => {
+		return this.moves = this.moves || this
+		.piece(this.offsets.movesStart, this.offsets.movesEnd)
+		.then((buffer) => {
 
 			const nameBytes = [];
 			const nameList  = [];
@@ -171,9 +292,16 @@ export class PokemonRom extends Rom
 		});
 	}
 
+	getTmMoves()
+	{
+		if(this.tmMoves) return this.tmMoves;
+		return this.tmMoves = Promise.all([this.piece(this.offsets.tmStart, this.offsets.tmEnd), this.getAllMoves()])
+		.then(([buffer,moves]) => [...buffer].map(x => ({moveId: x, move: moves[-1 + x]})));
+	}
+
 	getAllNumbers()
 	{
-		return this.numbers = this.numbers = this.slice(0x41024, 190);
+		return this.numbers = this.numbers = this.slice(this.offsets.dexOrder, 190);
 	}
 
 	getAllIndexNumbers()
@@ -198,9 +326,30 @@ export class PokemonRom extends Rom
 		});
 	}
 
-	getTileFromSet(address, offset)
+	getSprites()
 	{
+		const getChunks = [
+			  this.piece(this.offsets.overworldAStart, this.offsets.overworldAEnd)
+			, this.piece(this.offsets.overworldBStart, this.offsets.overworldBEnd)
+			, this.piece(this.offsets.overworldCStart, this.offsets.overworldCEnd)
+			, this.piece(this.offsets.overworldDStart, this.offsets.overworldDEnd)
+			, this.piece(this.offsets.overworldEStart, this.offsets.overworldEEnd)
+		];
 
+		if(this.offsets.overworldFStart)
+		{
+			getChunks.push( this.piece(this.offsets.overworldFStart, this.offsets.overworldFEnd) );
+		}
+
+		return Promise.all(getChunks).then(chunks => chunks.map(chunk => {
+
+			const sprites = new Uint8Array(chunk.length * 32);
+			const decoder = new Gameboy2bpp(chunk, sprites, 16);
+
+			while(decoder.next()){}
+
+			return sprites
+		}));
 	}
 
 	getBlockFromSet(address, blockId)
@@ -211,13 +360,9 @@ export class PokemonRom extends Rom
 		);
 	}
 
-	blockToTiles()
-	{
-	}
-
 	getAllTilesets()
 	{
-		return this.piece(0xC7BE, 0xC8DE).then(headers => {
+		return this.piece(this.offsets.tilesetStart, this.offsets.tilesetEnd).then(headers => {
 
 			const tilesets = [];
 
@@ -227,9 +372,9 @@ export class PokemonRom extends Rom
 
 				const bank = header[0];
 
-				const blockPointer = this.makeRef(bank, header.slice(1,3));
-				const tilePointer  = this.makeRef(bank, header.slice(3,5));
-				const collisionPointer = this.makeRef(bank, header.slice(5,7));
+				const blockPointer     = this.makeRef(bank, header.slice(1,3));
+				const tilePointer      = this.makeRef(bank, header.slice(3,5));
+				const collisionPointer = this.makeRef(0, header.slice(5,7));
 
 				const talkTiles = header.slice(7,10);
 				const grass     = header[10];
@@ -246,19 +391,11 @@ export class PokemonRom extends Rom
 
 			return tilesets;
 		});
-
-		// 0x64000 - 0x67FFF
-		// 0x68000 - 0x6AFF8
-		// 0x6B5E8 - 0x6BFFF
-		// 0x6C000 - 0x6EB0B
 	}
 
 	getAllMaps()
 	{
-		const pieces = [
-			this.piece(0x01AE, 0x039E)
-			, this.piece(0xC23D, 0xC335)
-		];
+		const pieces = [ this.piece(this.offsets.mapAStart, this.offsets.mapAEnd), this.piece(this.offsets.mapBStart, this.offsets.mapBEnd)];
 
 		return Promise.all(pieces).then(([offsets, banks]) => {
 
@@ -271,12 +408,12 @@ export class PokemonRom extends Rom
 
 				const pointer = this.makeRef(bank, offset);
 
-				mapPointers.push([bank, pointer]);
+				mapPointers.push([bank, pointer, i]);
 			}
 
 			const maps = [];
 
-			for(const [bank, mapPointer] of mapPointers)
+			for(const [bank, mapPointer, mapId] of mapPointers)
 			{
 				const tilesetId = this.buffer[0 + mapPointer];
 				const height    = this.buffer[1 + mapPointer];
@@ -305,15 +442,17 @@ export class PokemonRom extends Rom
 					connections.push(connection);
 				}
 
-				const blockIds = this.deref(tilePointer, null, width * height);
+				const blockIds  = this.deref(tilePointer, null, width * height);
 
 				maps.push({
-					tilesetId
+					id: Number(mapId)
+					, tilesetId
 					, tileset: null
 					, height
 					, width
 					, bank
 					, tilePointer
+					// , collision
 					, textPointers
 					, scriptPointer
 					, connectionByte
@@ -324,11 +463,21 @@ export class PokemonRom extends Rom
 			}
 
 			return Promise.all([maps, this.getAllTilesets()]);
+
 		}).then(([maps, tilesets]) => {
 
 			for(const map of maps)
 			{
 				const tileset = map.tileset = tilesets[ map.tilesetId ];
+
+				if(!tileset)
+				{
+					continue;
+				}
+
+				const collision = this.deref(tileset.collisionPointer, 0xFF);
+
+				map.collision = Object.values(collision);
 
 				const blocks = {};
 
@@ -339,28 +488,48 @@ export class PokemonRom extends Rom
 					continue;
 				}
 
-				for(const blockId of map.blockIds)
-				{
-					const blockOffset = map.tileset.blockPointer + blockId * 16;
+				const tilePlane  = new Uint8Array(map.width * map.height * 4 * 4);
+				const solidPlane = new Uint8Array(map.width * map.height * 4 * 4);
+				const blockPlane = [];
 
-					if(blocks[blockId])
-					{
-						continue;
-					}
+				for(const blockIndex in map.blockIds)
+				{
+					const blockId     = map.blockIds[blockIndex];
+					const blockOffset = map.tileset.blockPointer + blockId * 16;
 
 					const block = this.buffer.slice(0 + blockOffset, 16 + blockOffset);
 
 					blocks[blockId] = block;
 
-					for(const tileId of block)
+					for(const tileIndex in block)
 					{
+						const tileId     = block[tileIndex];
 						const tileOffset = map.tileset.tilePointer + tileId * 16;
 
 						const tile = this.buffer.slice(0 + tileOffset, 16 + tileOffset);
 
 						tiles[tileId] = tile;
+
+						const xBlockOffset = blockIndex % map.width;
+						const yBlockOffset = Math.floor(blockIndex / map.width);
+
+						const xTileOffset = tileIndex % 4;
+						const yTileOffset = Math.floor(tileIndex / 4);
+
+						const xPlaneOffset = xTileOffset + xBlockOffset * 4;
+						const yPlaneOffset = yTileOffset + yBlockOffset * 4;
+
+						const tilePlaneIndex = xPlaneOffset + yPlaneOffset * map.width * 4;
+
+						tilePlane[tilePlaneIndex]  = 1 + tileId;
+						solidPlane[tilePlaneIndex] = !map.collision.includes(tileId);
 					}
 				}
+
+				map.tilePlane  = tilePlane;
+				map.solidPlane = solidPlane;
+				map.blockPlane = blockPlane;
+				// map.collision = collision;
 
 				if(!tiles)
 				{
@@ -411,23 +580,26 @@ export class PokemonRom extends Rom
 
 					// console.log([...tile].map(b => b.toString(16).padStart(2,'0')).join(' '));
 
-					for(const i in bitPairs)
-					{
-						const bp = bitPairs[i];
+					// console.log(`Map id: ${map.id}, Tile Index ${tileIndex}:`);
 
-						process.stdout.write( ansi[bp]('  ') )
+					// for(const i in bitPairs)
+					// {
+					// 	const bp = bitPairs[i];
 
-						if(i % 8 === 7)
-						{
-							process.stdout.write( `\n` );
-						}
-					}
+					// 	process.stdout.write( ansi[bp]('  ') )
 
-					process.stdout.write( `\n` );
+					// 	if(i % 8 === 7)
+					// 	{
+					// 		process.stdout.write( `\n` );
+					// 	}
+					// }
+
+					// process.stdout.write( `\n` );
 
 					renderedTiles[tileIndex] = bitPairs;
 				});
 
+				map.renderedTiles = renderedTiles;
 
 				const renderedBlocks = {};
 
@@ -440,7 +612,7 @@ export class PokemonRom extends Rom
 
 					const block = blocks[blockId];
 
-					const lines = Array(32).fill().map(l => Array(32).fill(0));
+					// const lines = Array(32).fill().map(l => Array(32).fill(0));
 					const bytes = Array(32).fill().map(l => Array(32).fill(0));
 
 					for(const tileIndex in block)
@@ -465,7 +637,7 @@ export class PokemonRom extends Rom
 							{
 								const y = j + tileY;
 
-								lines[y][x] = tile[i + j * 8];
+								// lines[y][x] = tile[i + j * 8];
 								bytes[y][x] = tile[i + j * 8];
 							}
 						}
@@ -486,29 +658,21 @@ export class PokemonRom extends Rom
 				map.blocks = blocks;
 			}
 
-			return maps;
+			return [maps, tilesets];
 		});
 	}
 
 	getPokemonName(indexNumber)
 	{
-		return this.slice(0x2FA3, 1).then((buffer) => {
+		const bytes = this.deref(this.offsets.namesStart + 0xA * indexNumber, 0x50, 0xA);
 
-			let bankByte = buffer[0];
-
-			return this.slice(0x2FAE, 2).then((buffer) => {
-				let pointer = this.makeRef(bankByte, buffer);
-
-				const bytes = this.deref(pointer + 0xA * indexNumber, 0x50, 0xA);
-
-				return this.decodeText(bytes);
-			});
-		});
+		return Promise.resolve(this.decodeText(bytes));
 	}
 
 	getPokemonNumber(indexNumber)
 	{
-		return this.slice(0x41024, 190).then(buffer => {
+		return this.slice(this.offsets.dexOrder, 190)
+		.then(buffer => {
 			return buffer[indexNumber];
 		});
 	}
@@ -547,7 +711,14 @@ export class PokemonRom extends Rom
 		}
 
 		return this.getPokemonNumber(indexNumber).then(number => {
-			return this.slice(0x383DE + (28 * (number - 1)), 28).then(buffer => {
+			let offset = 0x383DE + (28 * (number - 1));
+
+			if(indexNumber === 0x14)
+			{
+				offset = 0x425B;
+			}
+
+			return this.slice(offset, 28).then(buffer => {
 				return {
 					index:             Number(indexNumber) || indexNumber
 					, number:          buffer[0]
@@ -564,6 +735,7 @@ export class PokemonRom extends Rom
 					, frontSprite:     this.formatRef(spriteBank, buffer.slice(11, 13))
 					, backSprite:      this.formatRef(spriteBank, buffer.slice(13, 15))
 					, basicMoves:      [buffer[15], buffer[16], buffer[17], buffer[18]]
+					, tmMoves:         buffer.slice(20, 28)
 				};
 			});
 		});
@@ -571,11 +743,14 @@ export class PokemonRom extends Rom
 
 	getAllPokemon()
 	{
-		return this.slice(0x41024, 190).then(buffer => {
+		return this.slice(this.offsets.dexOrder, 190)
+		.then(buffer => {
 			const promises = [];
 
 			for (var i = 0; i < buffer.length; i++)
 			{
+				// console.log(i);
+
 				promises.push( this.getPokemon(i) );
 			}
 
@@ -585,7 +760,8 @@ export class PokemonRom extends Rom
 
 	getAllPokemonPalettes()
 	{
-		return this.slice(0x725C9, 150).then(buffer => {
+		return this.slice(this.offsets.palletPointers, 150)
+		.then(buffer => {
 
 			const used = [];
 
@@ -600,7 +776,10 @@ export class PokemonRom extends Rom
 
 	getAllPalettes()
 	{
-		return this.piece(0x72660, 0x7278F).then(buffer => {
+		return this.piece(this.offsets.palletStart, this.offsets.palletEnd)
+		.then(buffer => {
+
+			// console.log(...buffer);
 
 			let index = 0;
 
@@ -651,6 +830,8 @@ export class PokemonRom extends Rom
 		const getName     = this.getPokemonName(index);
 		const getStats    = this.getPokemonStats(index);
 		const getLevelUp  = this.getLevelUpActions(index);
+		const getBackSize = this.getBackSpriteLength(index);
+		const getTmMoves  = this.getTmMoves();
 
 		const getPokemon = Promise.all([
 			getAllTypes
@@ -660,9 +841,11 @@ export class PokemonRom extends Rom
 			, getName
 			, getStats
 			, getLevelUp
+			, getBackSize
+			, getTmMoves
 		])
 
-		return getPokemon.then(([allTypes, allMoves, number, dex, name, stats, levelUp])=>{
+		return getPokemon.then(([allTypes, allMoves, number, dex, name, stats, levelUp, backSize, tmIndex])=>{
 
 			const s = [
 				0x0,0x1,0x2,0x3,
@@ -713,7 +896,10 @@ export class PokemonRom extends Rom
 				, back: stats.backSprite
 			};
 
-			sprites.front.length = stats.frontSpriteSize;
+			const tmMoves = this.parseTmMoves(stats.tmMoves, tmIndex);
+
+			sprites.front.length = stats.frontSpriteSize * 8;
+			sprites.back.length = backSize;
 
 			delete stats.type1;
 			delete stats.type2;
@@ -721,7 +907,8 @@ export class PokemonRom extends Rom
 			delete stats.frontSprite;
 			delete stats.frontSpriteSize;
 			delete stats.backSprite;
-			delete stats.backSpriteSize;
+			// delete stats.backSpriteSize;
+			delete stats.tmMoves;
 
 			const levelUpMoves = [];
 
@@ -796,6 +983,7 @@ export class PokemonRom extends Rom
 					, sprites
 					, basicMoves
 					, levelUpMoves
+					, tmMoves
 				})
 			);
 		});
@@ -803,7 +991,8 @@ export class PokemonRom extends Rom
 
 	getPokedexEntry(indexNumber)
 	{
-		return this.piece(0x4047E, 0x405FA).then((buffer) => {
+		return this.piece(this.offsets.dexStart, this.offsets.dexEnd)
+		.then((buffer) => {
 			let pointer = 0
 				+ (buffer[ indexNumber * 2+1 ] << 8)
 				+ (buffer[ indexNumber * 2+0 ] << 0);
@@ -817,10 +1006,10 @@ export class PokemonRom extends Rom
 
 			let nextPointer = pointer + bytes.length + 1;
 
-			if(nextPointer == 0x40fe9)
-			{
-				return;
-			}
+			// if(nextPointer == 0x40fe9)
+			// {
+			// 	return;
+			// }
 
 			return this.slice(nextPointer, 9).then((bytes) => {
 
@@ -849,7 +1038,8 @@ export class PokemonRom extends Rom
 
 	getLevelUpActions(indexNumber)
 	{
-		return this.slice((indexNumber*2) + 0x3B05C, 2).then(pointerBytes => {
+		return this.slice((indexNumber*2) + this.offsets.levelUp, 2)
+		.then(pointerBytes => {
 
 			const evoPointer = this.makeRef(0x0E, pointerBytes);
 			const evoBytes   = this.deref(evoPointer, 0x0);
@@ -915,12 +1105,38 @@ export class PokemonRom extends Rom
 		return learnset;
 	}
 
+	parseTmMoves(bytes, table)
+	{
+		const canLearn = [];
+
+		for(let i = 0; i < 64; i++)
+		{
+			const byte = Math.trunc(i / 8);
+			const bit  = i % 8;
+
+			if(bytes[ byte ] & (1 << bit))
+			{
+				let id = 1+i;
+				let type = 'TM';
+
+				if(id > 50)
+				{
+					id -= 50;
+					type = 'HM';
+				}
+
+				canLearn.push(Object.assign({type, id}, table[i]));
+			}
+		}
+
+		return canLearn;
+	}
+
 	getFrontSprite(index)
 	{
-		return this.getPokemonStats(index).then(stats => {
-			return this.slice(stats.frontSprite.offset);
-		}).then(input => {
-
+		return this.getPokemonStats(index)
+		.then(stats => this.slice(stats.frontSprite.offset))
+		.then(input => {
 			const rleDelta = new RleDelta(input);
 
 			rleDelta.decompress();
@@ -933,12 +1149,21 @@ export class PokemonRom extends Rom
 		});
 	}
 
+	getBackSpriteLength(index)
+	{
+		return this.getBackSpriteMeta(index).then(m => m[0]);
+	}
+
 	getBackSprite(index)
 	{
-		return this.getPokemonStats(index).then(stats => {
-			return this.slice(stats.backSprite.offset);
-		}).then(input => {
+		return this.getBackSpriteMeta(index).then(m => m[1]);
+	}
 
+	getBackSpriteMeta(index)
+	{
+		return this.getPokemonStats(index)
+		.then(stats => this.slice(stats.backSprite.offset))
+		.then((input) => {
 			const rleDelta = new RleDelta(input);
 
 			rleDelta.decompress();
@@ -947,7 +1172,9 @@ export class PokemonRom extends Rom
 
 			merge.decompress();
 
-			return merge.buffer;
+			const sourceLength = rleDelta.bits.i;
+
+			return [sourceLength, merge.buffer];
 		});
 	}
 
