@@ -20,7 +20,7 @@ $ npm install pokemon-parser --save
 #### Load pokedex info for a given pokemon:
 
 ```javascript
-const rom = new PokemonRom(PATH_TO_ROM || BUFFER_CONTAINING_ROM);
+const rom = new PokemonRom(PATH_TO_ROM || BUFFER_CONTAINING_ROM);spro
 
 rom.preload().then(() => rom.getAllIndexNumbers()).then(numbers => {
 
@@ -79,7 +79,7 @@ $ pokemon-parser ~/PokemonRed.gb pic-back 25 > pikachu-back.png
 ![Pikachu front sprite fron Generation 1, greyscale](https://raw.githubusercontent.com/seanmorris/PokemonExtrator/master/pikachu-front.png)
 ![Pikachu back sprite fron Generation 1, greyscale](https://raw.githubusercontent.com/seanmorris/PokemonExtrator/master/pikachu-back.png)
 
-#### Sprites ith SBG colors:
+#### Sprites with SBG colors:
 
 The `pic-color` & `pic-back-color` commands will print a PNG image of the pokemon's sprite to `STDOUT` with its SBG palette applied. Here, we'll load the sprites for #6, Charizard:
 
